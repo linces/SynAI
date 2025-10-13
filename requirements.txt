@@ -1,0 +1,5 @@
+lark==1.1.9
+click==8.1.7
+networkx==3.2.1
+jsonschema==4.21.1
+pytest==7.4.3
