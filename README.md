@@ -2,7 +2,7 @@
 
 O SYN•AI é uma linguagem cognitiva declarativa que descreve como inteligências artificiais cooperam para atingir metas, em vez de como elas executam código.
 
-# SYN•AI — O salto além do MCP
+# SYN•AI - O salto além do MCP
 
 A SynAI não é um protocolo de contexto; é uma linguagem de coordenação cognitiva.
 Ela parte de uma camada acima — algo como o que o Kubernetes é para containers, o SynAI seria para agentes de IA.
