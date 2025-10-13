@@ -7,8 +7,8 @@
 
 > 🧠 **SynAI v1.2** — Uma linguagem declarativa para orquestração e colaboração entre agentes de IA, construída para interoperar nativamente com protocolos de contexto como o MCP da Anthropic.
 
-**Autor:** Linces Marques ([@linces](https://github.com/linces))  
-**Descrição:** O SynAI é uma linguagem cognitiva declarativa que descreve como inteligências artificiais cooperam para atingir metas, em vez de como elas executam código. Inspirado em anos de experiência em desenvolvimento robusto (de Delphi a Python), este projeto visa criar o "sistema operacional" para redes de IA colaborativas.
+
+O SynAI é uma linguagem cognitiva declarativa que descreve como inteligências artificiais cooperam para atingir metas, em vez de como elas executam código. Inspirado em anos de experiência em desenvolvimento robusto (de Delphi a Python), este projeto visa criar o "sistema operacional" para redes de IA colaborativas.
 
 SynAI é uma DSL (Domain-Specific Language) declarativa que permite descrever fluxos de colaboração entre IAs heterogêneas de forma simples e modular. Ela abstrai a complexidade de protocolos de comunicação (como MCP, HTTP ou gRPC), focando no "o quê" e "por quê" das interações, em vez do "como".
 
@@ -338,7 +338,7 @@ MIT License — veja [LICENSE](LICENSE).
 
 ## 🙌 Agradecimentos
 
-Inspirado em conversas colaborativas com IAs como Grok e Claude, e anos de experiência em desenvolvimento de software robusto (Delphi, Python, APIs). SynAI + MCP: a simbiose perfeita para o futuro da colaboração entre IAs!
+Inspirado em café em conversas com alguns loucos aqui, e conversas colaborativas com IAs como Grok, Claude, ChatGPT e anos de experiência em desenvolvimento de software robusto (Delphi, Python, APIs). SynAI + MCP: a simbiose perfeita para o futuro da colaboração entre IAs!
 
 ---
 
