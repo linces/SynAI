@@ -1,8 +1,13 @@
 # SYN•AI
 
-O #SYN•AI é uma linguagem cognitiva declarativa que descreve como inteligências artificiais cooperam para atingir metas, em vez de como elas executam código.
+O SYN•AI é uma linguagem cognitiva declarativa que descreve como inteligências artificiais cooperam para atingir metas, em vez de como elas executam código.
 
-VISÃO GERAL DO ECOSSISTEMA SYN•AI
+# SYN•AI — O salto além do MCP
+
+A SynAI não é um protocolo de contexto; é uma linguagem de coordenação cognitiva.
+Ela parte de uma camada acima — algo como o que o Kubernetes é para containers, o SynAI seria para agentes de IA.
+
+# VISÃO GERAL DO ECOSSISTEMA SYN•AI
 
 O SynAI é uma linguagem cognitiva declarativa que descreve como inteligências artificiais cooperam para atingir metas, em vez de como elas executam código.
 
@@ -58,3 +63,5 @@ Exemplo de CLI:
 synai build projeto.synai
 synai run projeto.synai --inspect
 synai deploy projeto.synx --mesh=remote
+
+
