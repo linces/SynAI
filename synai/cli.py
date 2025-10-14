@@ -1,6 +1,7 @@
 import click
 import os
 import json
+import networkx as nx
 from .parse import parse_synai
 from .weave import build_synai
 from .weaver import weave_linker
@@ -58,10 +59,30 @@ def link(synx_path):
 @cli.command()
 @click.argument('synx_path')
 def run(synx_path):
-    """Run linked workflow (mock)."""
+    """Run linked workflow (simulated execution)."""
 
-    click.echo(f"Running mock execution of {synx_path}...")
-    click.echo("Output: Workflow completed successfully (mock).")
+    if not os.path.exists(synx_path):
+        click.echo(f"Error: {synx_path} not found. Run 'synai link' first.")
+        return
+
+    click.echo(f"Running execution of {synx_path}...")
+    try:
+        with open(synx_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        G = nx.node_link_graph(data['graph'])
+        # Simulate topological execution
+        for node in list(nx.topological_sort(G)):
+            node_data = G.nodes[node]
+            if node_data.get('type') == 'intent':
+                input_val = node_data.get('input', 'N/A')
+                output_val = node_data.get('output', 'N/A')
+                click.echo(f"Executing intent: {node_data['agent']}.{node_data['name']} (input: {input_val}, output: {output_val})")
+        # Print connections
+        for edge in G.edges(data=True):
+            click.echo(f"Connecting {edge[0]} -> {edge[1]} with options: {edge[2]}")
+        click.echo("Workflow completed successfully.")
+    except Exception as e:
+        click.echo(f"Execution error: {e}")
 
 if __name__ == '__main__':
     cli()
