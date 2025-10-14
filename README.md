@@ -47,6 +47,27 @@ SynAI é construída em camadas modulares para escalabilidade:
 +---------------------------------------------------+
 ```
 
+flowchart TD
+    A[📜 .synai DSL] --> B[🧩 parse_synai()]
+    B -->|gera| C[🌳 AST (árvore sintática)]
+    C --> D[✅ build_synai()]
+    D -->|valida e enriquece| E[🧠 AST Validado]
+    E --> F[🔗 weave_linker()]
+    F -->|constrói grafo| G[🔺 Grafo NetworkX]
+    G -->|salva| H[💾 .synx bytecode]
+    H --> I[▶️ synai run]
+    I -->|execução topológica simulada| J[⚙️ Workflow executado]
+
+    classDef parse fill:#dff,stroke:#09f,stroke-width:2px;
+    classDef build fill:#dfd,stroke:#090,stroke-width:2px;
+    classDef link fill:#ffd,stroke:#990,stroke-width:2px;
+    classDef run fill:#fdd,stroke:#900,stroke-width:2px;
+    class B,C parse;
+    class D,E build;
+    class F,G,H link;
+    class I,J run;
+
+
 ### 🔌 Camada de Bridge SynAI-MCP
 
 O bridge traduz elementos SynAI para MCP de forma transparente:
