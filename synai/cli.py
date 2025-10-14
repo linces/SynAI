@@ -6,7 +6,7 @@ import asyncio
 from .parse import parse_synai
 from .weave import build_synai
 from .weaver import weave_linker
-from .runtime import SynRuntime  # Assume runtime.py exists
+from .runtime import SynRuntime
 
 @click.group()
 def cli():
@@ -75,8 +75,9 @@ def link(synx_path, diagram):
 
 @cli.command()
 @click.argument('synx_path')
-@click.option('--real', is_flag=True, help='Use real API (requires ANTHROPIC_API_KEY)')
-def run(synx_path, real):
+@click.option('--real', is_flag=True, help='Use real API')
+@click.option('--api-key', help='API key for real mode (overrides .env/env var)')
+def run(synx_path, real, api_key):
     # Auto-detect linked file with path fix (no double)
     dir_name = os.path.dirname(synx_path)
     base_name = os.path.basename(synx_path)
@@ -119,7 +120,7 @@ def run(synx_path, real):
 
     click.echo(f"Executando workflow '{wf_name}' de '{orch_name}' (real: {real})...")
     data_flow = {}  # Simulate data: key = output port, value = data
-    runtime = SynRuntime() if real else None
+    runtime = SynRuntime(api_key=api_key) if real else None
 
     for stmt in wf['statements']:
         if stmt['type'] == 'Intent':

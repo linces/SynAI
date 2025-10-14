@@ -2,10 +2,16 @@ import asyncio
 from typing import Dict, Any
 import anthropic
 import os
+from dotenv import load_dotenv  # Auto-load .env
+
+load_dotenv()  # Carrega .env automaticamente
 
 class SynRuntime:
     def __init__(self, api_key: str = None):
-        self.client = anthropic.Anthropic(api_key=api_key or os.getenv('ANTHROPIC_API_KEY'))
+        api_key = api_key or os.getenv('ANTHROPIC_API_KEY')
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY não encontrada. Set via .env, --api-key ou env var.")
+        self.client = anthropic.Anthropic(api_key=api_key)
         self.adapters = {
             'LLM': self._llm_adapter,
             # Expanda para 'Vision', 'Tool', etc.
@@ -46,12 +52,22 @@ class SynRuntime:
         """Adapter para LLM via MCP/Anthropic."""
         model = config['properties']['model']
         prompt = f"Execute {intent['name']} com input: {input_data}. Output format: {intent.get('output', 'text')}."
-        message = self.client.messages.create(
-            model=model,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return message.content[0].text if message.content else "No response"
+        try:
+            message = self.client.messages.create(
+                model=model,
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return message.content[0].text if message.content else "No response"
+        except anthropic.BadRequestError as e:
+            if "credit balance is too low" in str(e):
+                print("Créditos baixos — vá ao console para adicionar: https://console.anthropic.com/settings/plans")
+                return f"mock_fallback_{intent['name']} (créditos insuficientes)"
+            else:
+                raise ValueError(f"Erro na API: {e}")
+        except Exception as e:
+            print(f"Erro inesperado na API: {e}. Usando fallback mock.")
+            return f"mock_fallback_{intent['name']} (erro: {e})"
 
 # Exemplo de uso
 if __name__ == '__main__':
