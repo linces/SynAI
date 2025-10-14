@@ -1,12 +1,11 @@
 # SynAI — A Linguagem de Malha Cognitiva para Orquestração de IA
 
-[![Versão](https://img.shields.io/badge/versão-1.2-azul.svg)](https://github.com/linces/SynAI)
+[![Versão](https://img.shields.io/badge/versão-1.4-azul.svg)](https://github.com/linces/SynAI)
 [![Licença](https://img.shields.io/badge/licença-MIT-verde.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8%2B-laranja.svg)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-alfa-amarelo.svg)](https://github.com/linces/SynAI)
 
-> 🧠 **SynAI v1.3** — Uma linguagem declarativa para orquestração e colaboração entre agentes de IA, construída para interoperar nativamente com protocolos de contexto como o MCP da Anthropic.
-
+> 🧠 **SynAI v1.4** — Uma linguagem declarativa para orquestração e colaboração entre agentes de IA, construída para interoperar nativamente com protocolos de contexto como o MCP da Anthropic.
 
 O SynAI é uma linguagem cognitiva declarativa que descreve como inteligências artificiais cooperam para atingir metas, em vez de como elas executam código. Inspirado em anos de experiência em desenvolvimento robusto (de Delphi a Python), este projeto visa criar o "sistema operacional" para redes de IA colaborativas.
 
@@ -15,12 +14,14 @@ SynAI é uma DSL (Domain-Specific Language) declarativa que permite descrever fl
 ## Visão Geral
 
 SynAI opera em um nível abstrato acima dos protocolos de transporte. Por exemplo:
+
 - **MCP** (Message Context Protocol da Anthropic) fornece o "fio" de comunicação segura.
 - **SynAI** decide o que trafega nesse fio: intents, workflows, goals e políticas de fallback.
 
 Isso cria uma "rede cognitiva" onde IAs de diferentes provedores (Anthropic, OpenAI, Hugging Face) colaboram sem fricções, suportando cenários locais, cloud e edge.
 
 **Por que SynAI?**
+
 - **Interoperabilidade universal**: Conecta modelos via MCP, HTTP, gRPC ou MQTT.
 - **Abstração total**: Escreva fluxos declarativos sem lidar com APIs low-level.
 - **Segurança e modularidade**: Herda permissões do MCP e permite transportes personalizados.
@@ -50,6 +51,7 @@ SynAI é construída em camadas modulares para escalabilidade:
 ### Camada de Bridge SynAI-MCP
 
 O bridge traduz elementos SynAI para MCP de forma transparente:
+
 - **Intents** → MCP requests
 - **Context metadata** → MCP resource schema
 - **Workflow events** → MCP streams
@@ -102,7 +104,7 @@ orchestrator "ColabIA" {
 
     protocol {
         transport_priority: ["mcp", "http"];
-        handshake: "synai-v1.2";
+        handshake: "synai-v1.4";
         data_format: "json+embeddings";
     }
 }
@@ -111,6 +113,7 @@ run "ColabIA" with workflow "VisualReport";
 ```
 
 **Fluxo explicado:**
+
 - O `GrokAgent` usa MCP para trocar contexto com Claude/Grok.
 - O `DalleAgent` chama a API OpenAI via HTTP.
 - O `LlamaAgent` processa localmente.
@@ -147,13 +150,13 @@ O runtime SynAI injeta esse bridge quando necessário.
 
 ## Benefícios da Integração com MCP
 
-| Benefício              | Explicação                                                                 |
-|------------------------|----------------------------------------------------------------------------|
-| 🌍 Interoperabilidade universal | Conecta SynAI com Anthropic, OpenAI, HuggingFace, etc.                     |
-| 🧱 Abstração total     | Desenvolva fluxos sem conhecer o protocolo subjacente.                     |
-| 🛡️ Segurança           | Herda permissões e isolamento do MCP.                                      |
-| ⚙️ Modularidade        | Cada agente escolhe o transporte ideal (local, HTTP, MCP, MQTT).           |
-| 🧩 Extensibilidade     | Adapte para novos protocolos facilmente.                                   |
+| Benefício                       | Explicação                                                       |
+| ------------------------------- | ---------------------------------------------------------------- |
+| 🌍 Interoperabilidade universal | Conecta SynAI com Anthropic, OpenAI, HuggingFace, etc.           |
+| 🧱 Abstração total              | Desenvolva fluxos sem conhecer o protocolo subjacente.           |
+| 🛡️ Segurança                    | Herda permissões e isolamento do MCP.                            |
+| ⚙️ Modularidade                 | Cada agente escolhe o transporte ideal (local, HTTP, MCP, MQTT). |
+| 🧩 Extensibilidade              | Adapte para novos protocolos facilmente.                         |
 
 ## Futuro: SynAI Mesh + MCP Grid
 
@@ -173,26 +176,31 @@ Isso habilita redes distribuídas onde IAs se auto-descobrem e colaboram em temp
 ## Ecossistema SynAI
 
 ### 1. Linguagem e Sintaxe (SynAI DSL)
+
 - Inspirada em YAML + Python: Indentada, legível e declarativa.
 
 ### 2. Compilador (SynLink)
+
 Fases:
+
 - **Parsing**: AST via BNF.
 - **Semantic Weaving**: Resolve dependências e tipos.
 - **Codegen**: Bytecode `.synx` ou código nativo (Python/JS/Rust).
 
 ### 3. Linker Cognitivo (SynWeaver)
+
 - Gera bridges automáticos (MCP ↔ HTTP).
 - Roteia intents com base em capabilities.
 - Cache cognitivo para reuso de respostas.
 
 ### 4. Ambiente de Desenvolvimento (SynStudio)
+
 - **IDE**: Syntax highlighting (VSCode plugin).
 - **CLI**: `synai build`, `synai run --inspect`, `synai deploy`.
 - **Visualização**: Grafos interativos de fluxos.
 - **Logs**: "Quem falou com quem, quando e por quê".
 
-### 5. Gramática Formal (BNF) — SynAI v1.2
+### 5. Gramática Formal (BNF) — SynAI v1.4
 
 ```
 <program> ::= { <declaration> }
@@ -244,6 +252,7 @@ Fases:
 ### 6. Exemplo de Compilação
 
 **Entrada** (`demo.synai`):
+
 ```synai
 orchestrator "Demo" {
     agents {
@@ -270,21 +279,20 @@ run "Demo" with workflow "ResumoDeTexto";
 ```
 
 **Saída** (`.synx` — Bytecode intermediário):
+
 ```json
 {
   "version": "1.2",
   "orchestrator": "Demo",
   "workflow": "ResumoDeTexto",
   "agents": [
-    {"id": "texto", "model": "grok-3", "transport": "mcp"},
-    {"id": "resumo", "model": "llama", "local": true}
+    { "id": "texto", "model": "grok-3", "transport": "mcp" },
+    { "id": "resumo", "model": "llama", "local": true }
   ],
-  "links": [
-    {"from": "texto.output", "to": "resumo.input", "async": true}
-  ],
+  "links": [{ "from": "texto.output", "to": "resumo.input", "async": true }],
   "intents": [
-    {"agent": "texto", "action": "analyze"},
-    {"agent": "resumo", "action": "summarize"}
+    { "agent": "texto", "action": "analyze" },
+    { "agent": "resumo", "action": "summarize" }
   ]
 }
 ```
@@ -297,23 +305,25 @@ run "Demo" with workflow "ResumoDeTexto";
 
 ## Roadmap de Implementação
 
-| Etapa | Descrição | Status |
-|-------|-----------|--------|
-| 🔹 Gramática BNF | Base sintática e parser inicial (Lark/TextX) | Próximo passo |
-| 🔹 AST & Type system | Tipagem leve para intents e agents | Planejado |
-| 🔹 Codegen Python | Gerador para runtime local | Próximo |
-| 🔹 SynWeaver | Linker de fluxos (async + retries + bridge MCP) | Depois |
-| 🔹 SynStudio | IDE/CLI com visualização | Fase 2 |
+| Etapa                | Descrição                                       | Status        |
+| -------------------- | ----------------------------------------------- | ------------- |
+| 🔹 Gramática BNF     | Base sintática e parser inicial (Lark/TextX)    | Próximo passo |
+| 🔹 AST & Type system | Tipagem leve para intents e agents              | Planejado     |
+| 🔹 Codegen Python    | Gerador para runtime local                      | Próximo       |
+| 🔹 SynWeaver         | Linker de fluxos (async + retries + bridge MCP) | Depois        |
+| 🔹 SynStudio         | IDE/CLI com visualização                        | Fase 2        |
 
 ## Instalação
 
 1. Clone o repositório:
+
    ```bash:disable-run
    git clone https://github.com/linces/SynAI.git
    cd SynAI
    ```
 
 2. Instale dependências (Python 3.8+):
+
    ```bash
    pip install -r requirements.txt  # Inclui Lark, websockets, etc.
    ```
@@ -342,5 +352,8 @@ Inspirado em café em conversas com alguns loucos aqui, e conversas colaborativa
 
 ---
 
-*SynAI: A linguagem para redes cognitivas.*
+_SynAI: A linguagem para redes cognitivas._
+
+```
+
 ```
