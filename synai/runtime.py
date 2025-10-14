@@ -1,142 +1,218 @@
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import anthropic
 import openai
 import os
-from dotenv import load_dotenv  # Auto-load .env
+import json
+from dotenv import load_dotenv
 
-load_dotenv()  # Carrega .env automaticamente
+# Carrega .env automaticamente
+load_dotenv()
 
 class SynRuntime:
-    def __init__(self, api_key: str = None, xai_key: str = None):
-        # Anthropic (Claude)
+    """
+    Núcleo de execução do SynAI.
+    Gerencia runtime, comunicação entre agentes e execução de intents.
+    """
+
+    def __init__(self, api_key: Optional[str] = None, xai_key: Optional[str] = None, real: bool = False):
+        self.real = real
+        self.adapters = {
+            'LLM': self._llm_adapter,
+            # futuro: Vision, Tool, Chain, etc.
+        }
+
+        # Configuração Anthropic
         anthro_key = api_key or os.getenv('ANTHROPIC_API_KEY')
+        self.client_anthro = None
         if anthro_key:
             try:
                 self.client_anthro = anthropic.Anthropic(api_key=anthro_key)
-                # Quick test
-                self.client_anthro.messages.create(model="claude-3-opus-20240229", max_tokens=1, messages=[{"role": "user", "content": "test"}])
-                print("[DEBUG] Anthropic key validada.")
+                # Teste básico de validade
+                try:
+                    self.client_anthro.messages.create(
+                        model="claude-3-opus-20240229",
+                        max_tokens=1,
+                        messages=[{"role": "user", "content": "ping"}]
+                    )
+                    print("[SynAI] ✅ Anthropic key validada.")
+                except Exception:
+                    print("[SynAI] ⚠️ Anthropic inicializado (sem teste de ping).")
             except Exception as e:
-                raise ValueError(f"Key Anthropic inválida: {e}. Verifique .env ou --api-key. Console: https://console.anthropic.com/settings/keys")
-        else:
-            self.client_anthro = None
+                print(f"[SynAI] ❌ Erro ao inicializar Anthropic: {e}")
 
-        # xAI (Grok)
+        # Configuração xAI (Grok)
         xai_key = xai_key or os.getenv('XAI_API_KEY')
+        self.client_grok = None
         if xai_key:
             try:
                 self.client_grok = openai.OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
-                # Quick test
-                self.client_grok.chat.completions.create(model="grok-beta", messages=[{"role": "user", "content": "test"}], max_tokens=1)
-                print("[DEBUG] xAI key validada.")
+                print("[SynAI] ✅ xAI (Grok) key carregada.")
             except Exception as e:
-                raise ValueError(f"Key xAI inválida: {e}. Verifique .env ou compre créditos: https://console.x.ai/team/... (seu team ID)")
-        else:
-            self.client_grok = None
+                print(f"[SynAI] ❌ Erro ao inicializar xAI: {e}")
 
-        self.adapters = {
-            'LLM': self._llm_adapter,
-            # Expanda para 'Vision', 'Tool', etc.
-        }
-
+    # ------------------------------------------------------------------------
+    # EXECUÇÃO DE WORKFLOW
+    # ------------------------------------------------------------------------
     async def execute_workflow(self, ast: Dict[str, Any], run_decl: Dict[str, Any], mock: bool = True) -> Dict[str, Any]:
-        """Executa workflow async, mapeando intents para adapters."""
+        """Executa um workflow SynAI completo (se real=False, roda mock)."""
         orch_name = run_decl['orchestrator']
         wf_name = run_decl['workflow']
-        orch = next((d for d in ast['declarations'] if d['type'] == 'Orchestrator' and d['name'] == orch_name), None)
-        wf = next((b for b in orch['blocks'] if b['type'] == 'Workflow' and b['name'] == wf_name), None)
 
-        data_flow = {}  # Input/output simulation
+        orch = next((d for d in ast['declarations']
+                     if d['type'] == 'Orchestrator' and d['name'] == orch_name), None)
+        if not orch:
+            raise ValueError(f"❌ Orchestrator '{orch_name}' não encontrado no AST.")
+
+        wf = next((b for b in orch['blocks']
+                   if b['type'] == 'Workflow' and b['name'] == wf_name), None)
+        if not wf:
+            raise ValueError(f"❌ Workflow '{wf_name}' não encontrado no Orchestrator '{orch_name}'.")
+
+        data_flow = {}
         results = []
+        print(f"🚀 Iniciando execução do workflow '{wf_name}' de '{orch_name}' (modo real: {self.real})")
 
         for stmt in wf['statements']:
-            if stmt['type'] == 'Intent':
-                agent = stmt['agent']
-                agent_config = next((a for block in orch['blocks'] if block['type'] == 'AgentsBlock' for a in block['agents'] if a['id'] == agent), None)
-                adapter = self.adapters.get(agent_config['agent_type'])
-                input_data = data_flow.get(f"{agent}_input", stmt.get('input', ''))
-                if mock:
+            stmt_type = stmt['type']
+
+            # -------------------------------
+            # INTENT (execução de agente)
+            # -------------------------------
+            if stmt_type == 'Intent':
+                agent_id = stmt['agent']
+                agent_cfg = self._get_agent_config(orch, agent_id)
+                if not agent_cfg:
+                    print(f"⚠️  Agente '{agent_id}' não encontrado — ignorando intent '{stmt['name']}'")
+                    continue
+
+                input_data = data_flow.get(f"{agent_id}_input", stmt.get('input', 'N/A'))
+                print(f"🎯 Executando intent {agent_id}.{stmt['name']} (input: {input_data})")
+
+                if mock or not self.real:
                     output = f"mock_result_{stmt['name']}({input_data})"
                 else:
-                    output = await adapter(agent_config, stmt, input_data)
-                data_flow[f"{agent}_output"] = output
-                results.append({'intent': stmt['name'], 'output': output})
-            elif stmt['type'] == 'Connect':
-                from_data = data_flow.get(f"{stmt['from']}_output", 'N/A')
-                data_flow[f"{stmt['to']}_input"] = from_data
-                # Apply options (async/retry in real)
-                if stmt['options'].get('async'):
-                    await asyncio.sleep(0.1)
+                    output = await self._dispatch_to_adapter(agent_cfg, stmt, input_data)
 
-        return {'status': 'completed', 'results': results}
+                data_flow[f"{agent_id}_output"] = output
+                results.append({'intent': stmt['name'], 'agent': agent_id, 'output': output})
 
+            # -------------------------------
+            # CONNECT (ligação de agentes)
+            # -------------------------------
+            elif stmt_type == 'Connect':
+                from_agent = stmt['from']
+                to_agent = stmt['to']
+                opts = stmt.get('options', {})
+                from_data = data_flow.get(f"{from_agent}_output", 'N/A')
+                data_flow[f"{to_agent}_input"] = from_data
+                print(f"🔗 Conectando {from_agent}.output → {to_agent}.input (data: {from_data}, options: {opts})")
+
+                # Controle de tempo/async
+                if opts.get('async'):
+                    await asyncio.sleep(0.05)
+                if opts.get('timeout'):
+                    await asyncio.sleep(min(0.1, opts['timeout'] / 100))
+
+            else:
+                print(f"⚠️ Tipo de instrução '{stmt_type}' desconhecido — ignorado.")
+
+        print("✅ Execução concluída com sucesso.")
+        return {'status': 'completed', 'results': results, 'flow': data_flow}
+
+    # ------------------------------------------------------------------------
+    # HELPERS
+    # ------------------------------------------------------------------------
+    def _get_agent_config(self, orch: Dict[str, Any], agent_id: str) -> Optional[Dict[str, Any]]:
+        """Retorna o bloco de configuração de um agente pelo ID."""
+        for block in orch.get('blocks', []):
+            if block['type'] == 'AgentsBlock':
+                for agent in block['agents']:
+                    if agent['id'] == agent_id:
+                        return agent
+        return None
+
+    async def _dispatch_to_adapter(self, agent_cfg: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
+        """Envia execução ao adapter certo (baseado no tipo de agente)."""
+        agent_type = agent_cfg.get('agent_type', 'LLM')
+        adapter = self.adapters.get(agent_type)
+        if not adapter:
+            print(f"⚠️  Adapter '{agent_type}' não implementado — fallback mock.")
+            return f"mock_result_{intent['name']}({input_data})"
+        return await adapter(agent_cfg, intent, input_data)
+
+    # ------------------------------------------------------------------------
+    # ADAPTADOR LLM (Anthropic, xAI)
+    # ------------------------------------------------------------------------
     async def _llm_adapter(self, config: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
-        """Adapter para LLM (Anthropic ou xAI baseado no model)."""
-        model = config['properties']['model']
-        prompt = f"Execute {intent['name']} com input: {input_data}. Output format: {intent.get('output', 'text')}."
-        print(f"[DEBUG] Prompt enviado: {prompt[:100]}... (model: {model})")  # Log para debug
-        
+        """Adapter genérico para LLMs (Claude, Grok, etc)."""
+        model = config['properties'].get('model', 'unknown')
+        endpoint = config['properties'].get('endpoint', '')
+        prompt = f"Tarefa: {intent['name']}\nInput: {input_data}\nFormato de saída: {intent.get('output', 'texto')}."
+        print(f"🧠 Executando LLM {config['id']} ({model}) → endpoint: {endpoint}")
+
+        # xAI Grok
         if 'grok' in model.lower() and self.client_grok:
-            # xAI Grok
-            print("[DEBUG] Chamando xAI Grok...")
             try:
                 response = self.client_grok.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=1024
+                    max_tokens=512
                 )
-                output = response.choices[0].message.content or "No response"
-                print(f"[DEBUG] Resposta Grok: {output[:100]}...")
-                return output
-            except openai.APIError as e:
-                print(f"Erro na xAI API: {e}. Usando fallback mock.")
+                out = response.choices[0].message.content or "(sem resposta)"
+                print(f"💾 Resposta Grok ({len(out)} chars)")
+                return out
+            except Exception as e:
+                print(f"⚠️  Erro xAI ({model}): {e}")
                 return f"grok_mock_{intent['name']} (erro: {e})"
+
+        # Anthropic Claude
         elif self.client_anthro:
-            # Anthropic Claude
-            print("[DEBUG] Chamando Anthropic Claude...")
             try:
-                # Try messages.create (new SDK)
-                if hasattr(self.client_anthro, 'messages'):
-                    message = self.client_anthro.messages.create(
-                        model=model,
-                        max_tokens=1024,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    output = message.content[0].text if message.content else "No response"
-                else:
-                    # Fallback to completions.create (old SDK)
-                    print("[DEBUG] Usando completions fallback (SDK antigo)...")
-                    completion = self.client_anthro.completions.create(
-                        model=model,
-                        prompt=prompt,
-                        max_tokens_to_sample=1024
-                    )
-                    output = completion.completion or "No response"
-                print(f"[DEBUG] Resposta Claude: {output[:100]}...")
-                return output
+                msg = self.client_anthro.messages.create(
+                    model=model,
+                    max_tokens=512,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                out = msg.content[0].text if msg.content else "(vazio)"
+                print(f"💾 Resposta Claude ({len(out)} chars)")
+                return out
             except anthropic.BadRequestError as e:
-                if "credit balance is too low" in str(e):
-                    print("Créditos baixos — vá ao console para adicionar: https://console.anthropic.com/settings/plans")
-                    return f"claude_mock_{intent['name']} (créditos insuficientes)"
+                if "credit balance" in str(e):
+                    print("💸 Créditos insuficientes Anthropic.")
+                    return f"claude_mock_{intent['name']} (sem créditos)"
                 elif "invalid x-api-key" in str(e):
-                    print("Key inválida — regere no console: https://console.anthropic.com/settings/keys")
+                    print("🔑 Key Anthropic inválida.")
                     return f"claude_mock_{intent['name']} (key inválida)"
                 else:
-                    raise ValueError(f"Erro na API: {e}")
+                    print(f"⚠️ Erro Claude: {e}")
+                    return f"claude_mock_{intent['name']} ({e})"
             except Exception as e:
-                print(f"Erro inesperado na API: {e}. Usando fallback mock.")
-                return f"claude_mock_{intent['name']} (erro: {e})"
-        else:
-            print("Nenhuma API configurada para LLM. Usando mock.")
-            return f"mock_{intent['name']} (no API)"
+                print(f"⚠️ Erro inesperado Claude: {e}")
+                return f"claude_mock_{intent['name']} ({e})"
 
-# Exemplo de uso
+        else:
+            print("⚠️ Nenhuma API configurada — fallback mock.")
+            return f"mock_result_{intent['name']}({input_data})"
+
+
+# ------------------------------------------------------------------------
+# EXECUÇÃO DIRETA DE TESTE
+# ------------------------------------------------------------------------
 if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1:
-        with open(sys.argv[1], 'r') as f:
+        path = sys.argv[1]
+        if not os.path.exists(path):
+            print(f"❌ Arquivo {path} não encontrado.")
+            exit(1)
+        with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        runtime = SynRuntime()
-        result = asyncio.run(runtime.execute_workflow(data['validated_ast'], data['validated_ast']['declarations'][-1], mock=False))
-        print(json.dumps(result, indent=2))
+
+        runtime = SynRuntime(real=True)
+        result = asyncio.run(runtime.execute_workflow(
+            data['validated_ast'],
+            next(d for d in data['validated_ast']['declarations'] if d['type'] == 'Run'),
+            mock=False
+        ))
+        print(json.dumps(result, indent=2, ensure_ascii=False))

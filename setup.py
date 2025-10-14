@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="synai",
-    version="1.3",
+    version="1.4",
     packages=find_packages(),
     install_requires=["lark", "click", "networkx", "jsonschema"],
     entry_points={"console_scripts": ["synai=synai.cli:cli"]},

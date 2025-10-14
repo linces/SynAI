@@ -355,5 +355,5 @@ Inspirado em café em conversas com alguns loucos aqui, e conversas colaborativa
 _SynAI: A linguagem para redes cognitivas._
 
 ```
-
+``
 ```
