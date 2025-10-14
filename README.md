@@ -5,14 +5,14 @@
 [![Python](https://img.shields.io/badge/python-3.8%2B-laranja.svg)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-alfa-amarelo.svg)](https://github.com/linces/SynAI)
 
-> 🧠 **SynAI v1.2** — Uma linguagem declarativa para orquestração e colaboração entre agentes de IA, construída para interoperar nativamente com protocolos de contexto como o MCP da Anthropic.
+> 🧠 **SynAI v1.3** — Uma linguagem declarativa para orquestração e colaboração entre agentes de IA, construída para interoperar nativamente com protocolos de contexto como o MCP da Anthropic.
 
 
 O SynAI é uma linguagem cognitiva declarativa que descreve como inteligências artificiais cooperam para atingir metas, em vez de como elas executam código. Inspirado em anos de experiência em desenvolvimento robusto (de Delphi a Python), este projeto visa criar o "sistema operacional" para redes de IA colaborativas.
 
 SynAI é uma DSL (Domain-Specific Language) declarativa que permite descrever fluxos de colaboração entre IAs heterogêneas de forma simples e modular. Ela abstrai a complexidade de protocolos de comunicação (como MCP, HTTP ou gRPC), focando no "o quê" e "por quê" das interações, em vez do "como".
 
-## 🌐 Visão Geral
+## Visão Geral
 
 SynAI opera em um nível abstrato acima dos protocolos de transporte. Por exemplo:
 - **MCP** (Message Context Protocol da Anthropic) fornece o "fio" de comunicação segura.
@@ -26,7 +26,7 @@ Isso cria uma "rede cognitiva" onde IAs de diferentes provedores (Anthropic, Ope
 - **Segurança e modularidade**: Herda permissões do MCP e permite transportes personalizados.
 - **Extensibilidade**: Fácil adaptação para novos protocolos (ex: OpenAI Realtime API).
 
-## ⚙️ Arquitetura de Camadas
+## Arquitetura de Camadas
 
 SynAI é construída em camadas modulares para escalabilidade:
 
@@ -68,7 +68,7 @@ flowchart TD
     class I,J run;
 
 
-### 🔌 Camada de Bridge SynAI-MCP
+### Camada de Bridge SynAI-MCP
 
 O bridge traduz elementos SynAI para MCP de forma transparente:
 - **Intents** → MCP requests
@@ -77,7 +77,7 @@ O bridge traduz elementos SynAI para MCP de forma transparente:
 
 Agentes com `transport: "mcp"` ativam isso automaticamente.
 
-## 🚀 Exemplo Prático
+## Exemplo Prático
 
 Aqui vai um workflow simples que usa MCP para um agente textual (Grok via Anthropic), HTTP para geração de imagem e execução local para análise:
 
@@ -137,7 +137,7 @@ run "ColabIA" with workflow "VisualReport";
 - O `LlamaAgent` processa localmente.
 - Tudo orquestrado de forma assíncrona e tolerante a falhas.
 
-### 🔧 Trecho Técnico do Bridge (Pseudo-Python)
+### Trecho Técnico do Bridge (Pseudo-Python)
 
 ```python
 class MCPBridge:
@@ -166,7 +166,7 @@ class MCPBridge:
 
 O runtime SynAI injeta esse bridge quando necessário.
 
-## 🧩 Benefícios da Integração com MCP
+## Benefícios da Integração com MCP
 
 | Benefício              | Explicação                                                                 |
 |------------------------|----------------------------------------------------------------------------|
@@ -176,7 +176,7 @@ O runtime SynAI injeta esse bridge quando necessário.
 | ⚙️ Modularidade        | Cada agente escolhe o transporte ideal (local, HTTP, MCP, MQTT).           |
 | 🧩 Extensibilidade     | Adapte para novos protocolos facilmente.                                   |
 
-## 💡 Futuro: SynAI Mesh + MCP Grid
+## Futuro: SynAI Mesh + MCP Grid
 
 Próximo: Modo **Mesh** para descoberta dinâmica de agentes via service discovery.
 
@@ -191,7 +191,7 @@ discovery {
 
 Isso habilita redes distribuídas onde IAs se auto-descobrem e colaboram em tempo real.
 
-## 📚 Ecossistema SynAI
+## Ecossistema SynAI
 
 ### 1. Linguagem e Sintaxe (SynAI DSL)
 - Inspirada em YAML + Python: Indentada, legível e declarativa.
@@ -310,7 +310,7 @@ run "Demo" with workflow "ResumoDeTexto";
 }
 ```
 
-## 🧠 Ciclo de Vida de um Projeto
+## Ciclo de Vida de um Projeto
 
 1. `.synai` → **SynLink Compiler** → `.synx` bytecode
 2. **SynWeaver** + **SynStudio** → Runtime execution
@@ -326,7 +326,7 @@ run "Demo" with workflow "ResumoDeTexto";
 | 🔹 SynWeaver | Linker de fluxos (async + retries + bridge MCP) | Depois |
 | 🔹 SynStudio | IDE/CLI com visualização | Fase 2 |
 
-## 📦 Instalação
+## Instalação
 
 1. Clone o repositório:
    ```bash:disable-run
@@ -345,7 +345,7 @@ run "Demo" with workflow "ResumoDeTexto";
    synai run demo.synx
    ```
 
-## 🤝 Contribuições
+## Contribuições
 
 - Faça fork do repositório e crie uma branch.
 - Submeta PRs com testes.
@@ -357,7 +357,7 @@ run "Demo" with workflow "ResumoDeTexto";
 
 MIT License — veja [LICENSE](LICENSE).
 
-## 🙌 Agradecimentos
+## Agradecimentos
 
 Inspirado em café em conversas com alguns loucos aqui, e conversas colaborativas com IAs como Grok, Claude, ChatGPT e anos de experiência em desenvolvimento de software robusto (Delphi, Python, APIs). SynAI + MCP: a simbiose perfeita para o futuro da colaboração entre IAs!
 
