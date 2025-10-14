@@ -342,5 +342,5 @@ Inspirado em café em conversas com alguns loucos aqui, e conversas colaborativa
 
 ---
 
-*SynAI: O sistema operacional para redes cognitivas.*
+*SynAI: A linguagem para redes cognitivas.*
 ```
