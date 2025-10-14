@@ -17,8 +17,9 @@ property: ID ":" prop_value
 prop_value: STRING | array
 workflow_block: "workflow" STRING "{" statements "}"
 statements: workflow_stmt+
-workflow_stmt: start_stmt | connect_stmt | end_stmt
+workflow_stmt: start_stmt | step_stmt | connect_stmt | end_stmt
 start_stmt: "start:" intent_stmt
+step_stmt: "step:" intent_stmt
 end_stmt: "end:" intent_stmt
 intent_stmt: agent_id "." "intent" "(" arg_list ")"
 arg_list: intent_name ("," input_arg)? ("," output_arg)?
@@ -30,9 +31,12 @@ connect_stmt: "connect" from_agent "." "output" "->" to_agent "." "input" "{" op
 options: connect_opt*
 from_agent: ID
 to_agent: ID
-connect_opt: async_opt | timeout_opt
-async_opt: "async:" "true"
+connect_opt: async_opt | timeout_opt | transform_opt | retry_opt | filter_opt
+async_opt: "async:" BOOL  # Changed to BOOL for "true" | "false"
 timeout_opt: "timeout:" INT "s"
+transform_opt: "transform:" STRING
+retry_opt: "retry:" INT
+filter_opt: "filter:" STRING
 array: "[" strings "]"
 strings: STRING ("," STRING)*
 run_decl: "run" STRING "with" "workflow" STRING
@@ -41,6 +45,7 @@ AGENT_TYPE: /[A-Z][a-zA-Z0-9]+/
 ID: /[a-zA-Z_][a-zA-Z0-9_]*/
 STRING: /"[^"]*"/
 INT: /[0-9]+/
+BOOL: "true" | "false"  # New: for boolean options
 %import common.WS
 %ignore WS
 '''
@@ -124,6 +129,7 @@ class SynTransformer(Transformer):
 
     def statements(self, c): return self.transform_children(c)
     def start_stmt(self, c): return self.transform_children(c)[0]
+    def step_stmt(self, c): return self.transform_children(c)[0]
     def end_stmt(self, c): return self.transform_children(c)[0]
 
     def intent_stmt(self, c):
@@ -154,8 +160,9 @@ class SynTransformer(Transformer):
             from_agent = str(from_agent.children[0])
         if isinstance(to_agent, Tree):
             to_agent = str(to_agent.children[0])
+        options = n[2] if len(n) > 2 else {}
         return {'type': 'Connect', 'id': str(uuid.uuid4()),
-                'from': from_agent, 'to': to_agent, 'options': n[2]}
+                'from': from_agent, 'to': to_agent, 'options': options}
 
     def options(self, c):
         opts = {}
@@ -164,10 +171,25 @@ class SynTransformer(Transformer):
                 opts.update(child)
         return opts
 
-    def async_opt(self, c): return {'async': True}
+    def async_opt(self, c):
+        n = self.transform_children(c)
+        return {'async': n[0] == 'true'}  # Convert string to bool
+
     def timeout_opt(self, c):
         n = self.transform_children(c)
         return {'timeout': n[0]}
+
+    def transform_opt(self, c):
+        n = self.transform_children(c)
+        return {'transform': n[0]}
+
+    def retry_opt(self, c):
+        n = self.transform_children(c)
+        return {'retry': n[0]}
+
+    def filter_opt(self, c):
+        n = self.transform_children(c)
+        return {'filter': n[0]}
 
     def run_decl(self, c):
         n = self.transform_children(c)
@@ -197,7 +219,7 @@ class SynTransformer(Transformer):
     def STRING(self, s): return s.value.strip('"')
     def INT(self, s): return int(s.value)
     def AGENT_TYPE(self, s): return s.value
-
+    def BOOL(self, s): return s.value == 'true'  # Convert to bool
 
 # --- SANITIZAÇÃO FINAL
 def sanitize_tree(obj):

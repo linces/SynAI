@@ -12,14 +12,26 @@ class SynRuntime:
         # Anthropic (Claude)
         anthro_key = api_key or os.getenv('ANTHROPIC_API_KEY')
         if anthro_key:
-            self.client_anthro = anthropic.Anthropic(api_key=anthro_key)
+            try:
+                self.client_anthro = anthropic.Anthropic(api_key=anthro_key)
+                # Quick test
+                self.client_anthro.messages.create(model="claude-3-opus-20240229", max_tokens=1, messages=[{"role": "user", "content": "test"}])
+                print("[DEBUG] Anthropic key validada.")
+            except Exception as e:
+                raise ValueError(f"Key Anthropic inválida: {e}. Verifique .env ou --api-key. Console: https://console.anthropic.com/settings/keys")
         else:
             self.client_anthro = None
 
         # xAI (Grok)
         xai_key = xai_key or os.getenv('XAI_API_KEY')
         if xai_key:
-            self.client_grok = openai.OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
+            try:
+                self.client_grok = openai.OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
+                # Quick test
+                self.client_grok.chat.completions.create(model="grok-beta", messages=[{"role": "user", "content": "test"}], max_tokens=1)
+                print("[DEBUG] xAI key validada.")
+            except Exception as e:
+                raise ValueError(f"Key xAI inválida: {e}. Verifique .env ou compre créditos: https://console.x.ai/team/... (seu team ID)")
         else:
             self.client_grok = None
 
@@ -84,18 +96,32 @@ class SynRuntime:
             # Anthropic Claude
             print("[DEBUG] Chamando Anthropic Claude...")
             try:
-                message = self.client_anthro.messages.create(
-                    model=model,
-                    max_tokens=1024,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                output = message.content[0].text if message.content else "No response"
+                # Try messages.create (new SDK)
+                if hasattr(self.client_anthro, 'messages'):
+                    message = self.client_anthro.messages.create(
+                        model=model,
+                        max_tokens=1024,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    output = message.content[0].text if message.content else "No response"
+                else:
+                    # Fallback to completions.create (old SDK)
+                    print("[DEBUG] Usando completions fallback (SDK antigo)...")
+                    completion = self.client_anthro.completions.create(
+                        model=model,
+                        prompt=prompt,
+                        max_tokens_to_sample=1024
+                    )
+                    output = completion.completion or "No response"
                 print(f"[DEBUG] Resposta Claude: {output[:100]}...")
                 return output
             except anthropic.BadRequestError as e:
                 if "credit balance is too low" in str(e):
                     print("Créditos baixos — vá ao console para adicionar: https://console.anthropic.com/settings/plans")
                     return f"claude_mock_{intent['name']} (créditos insuficientes)"
+                elif "invalid x-api-key" in str(e):
+                    print("Key inválida — regere no console: https://console.anthropic.com/settings/keys")
+                    return f"claude_mock_{intent['name']} (key inválida)"
                 else:
                     raise ValueError(f"Erro na API: {e}")
             except Exception as e:

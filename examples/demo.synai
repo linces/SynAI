@@ -25,7 +25,7 @@ orchestrator "demo_advanced" {
     start: analyzer.intent("analyze_data", input: "data.txt", output: "analysis.json")
     connect analyzer.output -> visualizer.input { async: true timeout: 10s transform: "json_to_image" }
     connect visualizer.output -> coder.input { retry: 3 filter: "success" }
-    coder.intent("generate_code", input: "analysis.json", output: "script.py") { capabilities: ["code"] }
+    step: coder.intent("generate_code", input: "analysis.json", output: "script.py")
     connect coder.output -> summarizer.input { async: false timeout: 5s }
     end: summarizer.intent("generate_summary", input: "script.py", output: "final_report.md")
   }

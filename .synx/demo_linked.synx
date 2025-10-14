@@ -1,0 +1,340 @@
+{
+  "graph": {
+    "directed": true,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+      {
+        "type": "port",
+        "agent": "analyzer",
+        "port": "input",
+        "id": "analyzer_input"
+      },
+      {
+        "type": "port",
+        "agent": "analyzer",
+        "port": "output",
+        "id": "analyzer_output"
+      },
+      {
+        "type": "agent",
+        "model": "claude-3-opus-20240229",
+        "capabilities": [
+          "reason",
+          "analyze"
+        ],
+        "endpoint": "https://api.anthropic.com/v1",
+        "id": "agent:analyzer"
+      },
+      {
+        "type": "port",
+        "agent": "coder",
+        "port": "input",
+        "id": "coder_input"
+      },
+      {
+        "type": "port",
+        "agent": "coder",
+        "port": "output",
+        "id": "coder_output"
+      },
+      {
+        "type": "agent",
+        "model": "grok-beta",
+        "capabilities": [
+          "code",
+          "generate"
+        ],
+        "endpoint": "https://api.x.ai/v1",
+        "id": "agent:coder"
+      },
+      {
+        "type": "port",
+        "agent": "summarizer",
+        "port": "input",
+        "id": "summarizer_input"
+      },
+      {
+        "type": "port",
+        "agent": "summarizer",
+        "port": "output",
+        "id": "summarizer_output"
+      },
+      {
+        "type": "agent",
+        "model": "claude-3-sonnet-20240229",
+        "capabilities": [
+          "summarize",
+          "reason"
+        ],
+        "endpoint": "https://api.anthropic.com/v1",
+        "id": "agent:summarizer"
+      },
+      {
+        "type": "port",
+        "agent": "visualizer",
+        "port": "input",
+        "id": "visualizer_input"
+      },
+      {
+        "type": "port",
+        "agent": "visualizer",
+        "port": "output",
+        "id": "visualizer_output"
+      },
+      {
+        "type": "agent",
+        "model": "gpt-4-vision-preview",
+        "capabilities": [
+          "image_analyze",
+          "describe"
+        ],
+        "endpoint": "https://api.openai.com/v1",
+        "id": "agent:visualizer"
+      },
+      {
+        "type": "intent",
+        "agent": "analyzer",
+        "name": "analyze_data",
+        "input": "data.txt",
+        "output": "analysis.json",
+        "id": "intent:analyzer:analyze_data"
+      },
+      {
+        "type": "intent",
+        "agent": "coder",
+        "name": "generate_code",
+        "input": "analysis.json",
+        "output": "script.py",
+        "id": "intent:coder:generate_code"
+      },
+      {
+        "type": "intent",
+        "agent": "summarizer",
+        "name": "generate_summary",
+        "input": "script.py",
+        "output": "final_report.md",
+        "id": "intent:summarizer:generate_summary"
+      }
+    ],
+    "links": [
+      {
+        "source": "analyzer_input",
+        "target": "agent:analyzer"
+      },
+      {
+        "source": "analyzer_input",
+        "target": "intent:analyzer:analyze_data"
+      },
+      {
+        "async": false,
+        "timeout": 10,
+        "transform": "json_to_image",
+        "source": "analyzer_output",
+        "target": "visualizer_input"
+      },
+      {
+        "source": "agent:analyzer",
+        "target": "analyzer_output"
+      },
+      {
+        "source": "coder_input",
+        "target": "agent:coder"
+      },
+      {
+        "source": "coder_input",
+        "target": "intent:coder:generate_code"
+      },
+      {
+        "async": false,
+        "timeout": 5,
+        "source": "coder_output",
+        "target": "summarizer_input"
+      },
+      {
+        "source": "agent:coder",
+        "target": "coder_output"
+      },
+      {
+        "source": "summarizer_input",
+        "target": "agent:summarizer"
+      },
+      {
+        "source": "summarizer_input",
+        "target": "intent:summarizer:generate_summary"
+      },
+      {
+        "source": "agent:summarizer",
+        "target": "summarizer_output"
+      },
+      {
+        "source": "visualizer_input",
+        "target": "agent:visualizer"
+      },
+      {
+        "retry": 3,
+        "filter": "success",
+        "source": "visualizer_output",
+        "target": "coder_input"
+      },
+      {
+        "source": "agent:visualizer",
+        "target": "visualizer_output"
+      },
+      {
+        "source": "intent:analyzer:analyze_data",
+        "target": "analyzer_output"
+      },
+      {
+        "source": "intent:coder:generate_code",
+        "target": "coder_output"
+      },
+      {
+        "source": "intent:summarizer:generate_summary",
+        "target": "summarizer_output"
+      }
+    ]
+  },
+  "validated_ast": {
+    "type": "Program",
+    "id": "256dccf5-5cc8-4a6c-98e0-f0fd303abab8",
+    "declarations": [
+      {
+        "type": "Orchestrator",
+        "id": "2d795aa3-f47a-46e5-af7b-bdb9306861cb",
+        "name": "demo_advanced",
+        "blocks": [
+          {
+            "type": "AgentsBlock",
+            "id": "d9d8b708-60ad-41ca-bab3-c6d203c6ff08",
+            "agents": [
+              {
+                "type": "Agent",
+                "id": "analyzer",
+                "agent_type": "LLM",
+                "properties": {
+                  "model": "claude-3-opus-20240229",
+                  "capabilities": [
+                    "reason",
+                    "analyze"
+                  ],
+                  "endpoint": "https://api.anthropic.com/v1"
+                }
+              },
+              {
+                "type": "Agent",
+                "id": "coder",
+                "agent_type": "LLM",
+                "properties": {
+                  "model": "grok-beta",
+                  "capabilities": [
+                    "code",
+                    "generate"
+                  ],
+                  "endpoint": "https://api.x.ai/v1"
+                }
+              },
+              {
+                "type": "Agent",
+                "id": "summarizer",
+                "agent_type": "LLM",
+                "properties": {
+                  "model": "claude-3-sonnet-20240229",
+                  "capabilities": [
+                    "summarize",
+                    "reason"
+                  ],
+                  "endpoint": "https://api.anthropic.com/v1"
+                }
+              },
+              {
+                "type": "Agent",
+                "id": "visualizer",
+                "agent_type": "Vision",
+                "properties": {
+                  "model": "gpt-4-vision-preview",
+                  "capabilities": [
+                    "image_analyze",
+                    "describe"
+                  ],
+                  "endpoint": "https://api.openai.com/v1"
+                }
+              }
+            ]
+          },
+          {
+            "type": "Workflow",
+            "id": "03277b3a-2d14-4071-b9e7-42ec30c0c4ef",
+            "name": "data_pipeline",
+            "statements": [
+              {
+                "type": "Intent",
+                "id": "cd6836a4-577a-43f9-a4df-8aa2c7a1c9df",
+                "agent": "analyzer",
+                "name": "analyze_data",
+                "input": "data.txt",
+                "output": "analysis.json"
+              },
+              {
+                "type": "Connect",
+                "id": "f7c9eee6-7575-45a0-bcca-0f6679e1b086",
+                "from": "analyzer",
+                "to": "visualizer",
+                "options": {
+                  "async": false,
+                  "timeout": 10,
+                  "transform": "json_to_image"
+                }
+              },
+              {
+                "type": "Connect",
+                "id": "d9f8008e-b371-41c6-95c7-c9dbb111ef37",
+                "from": "visualizer",
+                "to": "coder",
+                "options": {
+                  "retry": 3,
+                  "filter": "success"
+                }
+              },
+              {
+                "type": "Intent",
+                "id": "0e886d02-b8e8-460f-92c1-bf9774f516ee",
+                "agent": "coder",
+                "name": "generate_code",
+                "input": "analysis.json",
+                "output": "script.py"
+              },
+              {
+                "type": "Connect",
+                "id": "fc25396a-4518-4eb2-a883-e3cb86dac4d8",
+                "from": "coder",
+                "to": "summarizer",
+                "options": {
+                  "async": false,
+                  "timeout": 5
+                }
+              },
+              {
+                "type": "Intent",
+                "id": "5118de1b-0e60-46cc-b2b2-5fa43dee2b5b",
+                "agent": "summarizer",
+                "name": "generate_summary",
+                "input": "script.py",
+                "output": "final_report.md"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Run",
+        "id": "66bfce82-6e0f-4cca-aea1-e67d7a7fece3",
+        "orchestrator": "demo_advanced",
+        "workflow": "data_pipeline"
+      }
+    ],
+    "warnings": []
+  },
+  "nodes_count": 15,
+  "edges_count": 17
+}
