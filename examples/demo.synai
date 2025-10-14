@@ -1,6 +1,9 @@
 orchestrator "demo" {
   agents {
-    grok: LLM { model: "grok-4" capabilities: ["reason", "code"] }
+    grok: LLM {
+      model: "grok-4"
+      capabilities: ["reason", "code"]
+    }
   }
   workflow "simple" {
     start: grok.intent("analyze", input: "data.txt")

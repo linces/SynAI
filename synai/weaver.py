@@ -4,31 +4,28 @@ import os
 from .weave import build_synai
 
 def weave_linker(ast: dict, output_path: str = None) -> dict:
-    """Linker: Gera grafo de roteamento e bytecode .synx."""
+    """Gera grafo de roteamento e bytecode .synx."""
     validated_ast = build_synai(ast)
     G = nx.DiGraph()
-    
-    # Extrai e adiciona agents como nodes
+
     for decl in validated_ast['declarations']:
         if decl['type'] == 'Orchestrator':
             for block in decl['blocks']:
                 if block['type'] == 'AgentsBlock':
                     for agent in block['agents']:
-                        G.add_node(agent['id'], type='agent', **agent['properties'])
-                if block['type'] == 'Workflow':
-                    # Adiciona intents como nodes
+                        G.add_node(f"agent:{agent['id']}", type='agent', **agent['properties'])
+                elif block['type'] == 'Workflow':
                     for stmt in block['statements']:
                         if stmt['type'] == 'Intent':
-                            node_id = f"{stmt['agent']}_{stmt['name']}"
-                            G.add_node(node_id, type='intent', agent=stmt['agent'], name=stmt['name'], 
-                                     input=stmt.get('input'), output=stmt.get('output'))
+                            node_id = f"intent:{stmt['agent']}:{stmt['name']}"
+                            G.add_node(node_id, type='intent', agent=stmt['agent'],
+                                       name=stmt['name'], input=stmt.get('input'),
+                                       output=stmt.get('output'))
                         elif stmt['type'] == 'Connect':
-                            # Adiciona edges para connects
-                            from_node = f"{stmt['from']}_output"
-                            to_node = f"{stmt['to']}_input"
+                            from_node = f"agent:{stmt['from']}"
+                            to_node = f"agent:{stmt['to']}"
                             G.add_edge(from_node, to_node, **stmt['options'])
-    
-    # Bytecode: grafo + AST
+
     bytecode = {
         'graph': nx.node_link_data(G),
         'validated_ast': validated_ast,
@@ -36,24 +33,8 @@ def weave_linker(ast: dict, output_path: str = None) -> dict:
         'edges_count': G.number_of_edges()
     }
     if output_path:
+        os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(bytecode, f, indent=2, default=str)
-        return f"Linked: {output_path} (grafo: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges)"
+        return f"Linked: {output_path} ({G.number_of_nodes()} nós, {G.number_of_edges()} conexões)"
     return bytecode
-
-# Exemplo de uso
-if __name__ == '__main__':
-    try:
-        from .parse import parse_synai
-        demo_path = '../examples/demo.synai'
-        if os.path.exists(demo_path):
-            with open(demo_path, 'r', encoding='utf-8') as f:
-                code = f.read()
-            ast = parse_synai(code)
-        else:
-            print("Demo file not found, skipping.")
-            ast = {'type': 'Program', 'declarations': []}  # Mock
-        result = weave_linker(ast, 'demo_linked.synx')
-        print(result)
-    except Exception as e:
-        print(f"Example error: {e}")

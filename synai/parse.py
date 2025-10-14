@@ -1,11 +1,10 @@
-from lark import Lark, Transformer, Token
+from lark import Lark, Transformer, Token, UnexpectedInput, Tree
 import json
+import uuid
 
 grammar = r'''
 start: program
-
 program: declaration+
-
 declaration: orchestrator_decl | run_decl
 
 orchestrator_decl: "orchestrator" STRING "{" block+ "}"
@@ -42,7 +41,6 @@ AGENT_TYPE: /[A-Z][a-zA-Z0-9]+/
 ID: /[a-zA-Z_][a-zA-Z0-9_]*/
 STRING: /"[^"]*"/
 INT: /[0-9]+/
-
 %import common.WS
 %ignore WS
 '''
@@ -51,199 +49,179 @@ parser = Lark(grammar, start='program')
 
 class SynTransformer(Transformer):
     def transform_children(self, children):
-        transformed = [self.transform(c) for c in children]
-        return [c for c in transformed if c is not None]
+        if not children:
+            return []
+        transformed = []
+        for c in children:
+            if isinstance(c, (str, int, float, dict, list)):
+                transformed.append(c)
+            else:
+                try:
+                    transformed.append(self.transform(c))
+                except Exception:
+                    transformed.append(c)
+        return [c for c in transformed if c is not None and not isinstance(c, Token)]
 
-    # Punctuation to None
-    def COMMA(self, s):
-        return None
+    def declaration(self, c): return self.transform_children(c)[0]
+    def block(self, c): return self.transform_children(c)[0]
+    def workflow_stmt(self, c): return self.transform_children(c)[0]
+    def connect_opt(self, c): return self.transform_children(c)[0]
 
-    def COLON(self, s):
-        return None
+    def program(self, c):
+        decls = self.transform_children(c)
+        return {'type': 'Program', 'id': str(uuid.uuid4()), 'declarations': decls}
 
-    def LBRACE(self, s):
-        return None
+    def orchestrator_decl(self, c):
+        n = self.transform_children(c)
+        name = n[0]
+        blocks = n[1:]
+        return {'type': 'Orchestrator', 'id': str(uuid.uuid4()), 'name': name, 'blocks': blocks}
 
-    def RBRACE(self, s):
-        return None
+    def agents_block(self, c):
+        agents = self.transform_children(c)[0]
+        return {'type': 'AgentsBlock', 'id': str(uuid.uuid4()), 'agents': agents}
 
-    def LPAREN(self, s):
-        return None
+    def agent_entries(self, c): return self.transform_children(c)
 
-    def RPAREN(self, s):
-        return None
+    def agent_entry(self, c):
+        n = self.transform_children(c)
+        return {'type': 'Agent', 'id': n[0], 'agent_type': n[1], 'properties': n[2]}
 
-    def ARROW(self, s):
-        return None  # for ->
-
-    def DOT(self, s):
-        return None
-
-    def program(self, children):
-        return {'type': 'Program', 'declarations': self.transform_children(children)}
-
-    def orchestrator_decl(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None]
-        name = non_punct[0]
-        blocks = non_punct[1:]
-        return {'type': 'Orchestrator', 'name': name, 'blocks': blocks}
-
-    def agents_block(self, children):
-        agent_entries = self.transform_children(children)[0]
-        return {'type': 'AgentsBlock', 'agents': agent_entries}
-
-    def agent_entries(self, children):
-        return self.transform_children(children)
-
-    def agent_entry(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None]
-        id_ = non_punct[0]
-        agent_type = non_punct[1]
-        properties = non_punct[2]
-        return {'type': 'Agent', 'id': id_, 'agent_type': agent_type, 'properties': properties}
-
-    def properties(self, children):
+    def properties(self, c):
         props = {}
-        for child in self.transform_children(children):
+        for child in self.transform_children(c):
             if isinstance(child, dict):
                 props.update(child)
         return props
 
     def property(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None and not isinstance(c, Token)]
-        key = non_punct[0]
-        value = non_punct[1]
-        if key == 'capabilities':
-            return {'capabilities': value}
-        else:
-            return {key: value}
+        if not children:
+            return {}
+        n = []
+        for ch in children:
+            if isinstance(ch, (str, int, float, dict, list)):
+                n.append(ch)
+            else:
+                try:
+                    n.append(self.transform(ch))
+                except Exception:
+                    n.append(ch)
+        key = n[0] if len(n) > 0 else "unknown"
+        val = n[1] if len(n) > 1 else None
+        return {key: val}
 
     def prop_value(self, children):
-        return self.transform_children(children)[0]
+        if not children:
+            return None
+        first = children[0]
+        if isinstance(first, (str, int, float, list, dict)):
+            return first
+        return self.transform(first)
 
-    def workflow_block(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None]
-        name = non_punct[0]
-        statements = non_punct[1]
-        return {'type': 'Workflow', 'name': name, 'statements': statements}
+    def workflow_block(self, c):
+        n = self.transform_children(c)
+        return {'type': 'Workflow', 'id': str(uuid.uuid4()), 'name': n[0], 'statements': n[1]}
 
-    def statements(self, children):
-        return self.transform_children(children)
+    def statements(self, c): return self.transform_children(c)
+    def start_stmt(self, c): return self.transform_children(c)[0]
+    def end_stmt(self, c): return self.transform_children(c)[0]
 
-    def workflow_stmt(self, children):
-        return self.transform_children(children)[0]
+    def intent_stmt(self, c):
+        n = self.transform_children(c)
+        agent = n[0]
+        if isinstance(agent, Tree):
+            agent = str(agent.children[0])
+        args = n[1]
+        return {'type': 'Intent', 'id': str(uuid.uuid4()), 'agent': agent,
+                'name': args[0], 'input': args[1], 'output': args[2]}
 
-    def start_stmt(self, children):
-        return self.transform_children(children)[0]
+    def arg_list(self, c):
+        n = self.transform_children(c)
+        name, input_, output_ = n[0], None, None
+        for item in n[1:]:
+            if isinstance(item, dict):
+                input_ = item.get('input', input_)
+                output_ = item.get('output', output_)
+        return [name, input_, output_]
 
-    def end_stmt(self, children):
-        return self.transform_children(children)[0]
+    def input_arg(self, c): return {'input': self.transform_children(c)[0]}
+    def output_arg(self, c): return {'output': self.transform_children(c)[0]}
 
-    def intent_stmt(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None]
-        agent = non_punct[0]
-        arg_list = non_punct[1]
-        name = arg_list[0]
-        input_ = arg_list[1] if len(arg_list) > 1 else None
-        output = arg_list[2] if len(arg_list) > 2 else None
-        return {'type': 'Intent', 'agent': agent, 'name': name, 'input': input_, 'output': output}
+    def connect_stmt(self, c):
+        n = self.transform_children(c)
+        from_agent, to_agent = n[0], n[1]
+        if isinstance(from_agent, Tree):
+            from_agent = str(from_agent.children[0])
+        if isinstance(to_agent, Tree):
+            to_agent = str(to_agent.children[0])
+        return {'type': 'Connect', 'id': str(uuid.uuid4()),
+                'from': from_agent, 'to': to_agent, 'options': n[2]}
 
-    def arg_list(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None and not isinstance(c, Token)]
-        name = non_punct[0]
-        input_ = None
-        output = None
-        if len(non_punct) > 1:
-            if isinstance(non_punct[1], dict) and 'input' in non_punct[1]:
-                input_ = non_punct[1]['input']
-            else:
-                output = non_punct[1]['output'] if isinstance(non_punct[1], dict) else non_punct[1]
-        if len(non_punct) > 2:
-            output = non_punct[2]['output'] if isinstance(non_punct[2], dict) else non_punct[2]
-        return [name, input_, output]
-
-    def input_arg(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None and not isinstance(c, Token)]
-        return {'input': non_punct[0]}
-
-    def output_arg(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None and not isinstance(c, Token)]
-        return {'output': non_punct[0]}
-
-    def connect_stmt(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None and not isinstance(c, Token)]
-        from_ = non_punct[0]
-        to_ = non_punct[1]
-        options = non_punct[2]
-        return {'type': 'Connect', 'from': from_, 'to': to_, 'options': options}
-
-    def options(self, children):
+    def options(self, c):
         opts = {}
-        for child in self.transform_children(children):
+        for child in self.transform_children(c):
             if isinstance(child, dict):
                 opts.update(child)
         return opts
 
-    def connect_opt(self, children):
-        return self.transform_children(children)[0]
+    def async_opt(self, c): return {'async': True}
+    def timeout_opt(self, c):
+        n = self.transform_children(c)
+        return {'timeout': n[0]}
 
-    def async_opt(self, children):
-        return {'async': True}
-
-    def timeout_opt(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None and not isinstance(c, Token)]
-        return {'timeout': non_punct[0]}
-
-    def run_decl(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None and not isinstance(c, Token)]
-        orch = non_punct[0]
-        wf = non_punct[1]
-        return {'type': 'Run', 'orchestrator': orch, 'workflow': wf}
+    def run_decl(self, c):
+        n = self.transform_children(c)
+        return {'type': 'Run', 'id': str(uuid.uuid4()), 'orchestrator': n[0], 'workflow': n[1]}
 
     def array(self, children):
-        non_punct = [c for c in self.transform_children(children) if c is not None and not isinstance(c, Token)]
-        return non_punct[0]
+        if not children:
+            return []
+        first = children[0]
+        if isinstance(first, list):
+            return first
+        if isinstance(first, (str, int)):
+            return [first]
+        return self.transform(first)
 
     def strings(self, children):
-        str_list = [c for c in self.transform_children(children) if isinstance(c, str)]
-        return str_list
+        result = []
+        for ch in children:
+            if isinstance(ch, str):
+                result.append(ch)
+            elif isinstance(ch, Tree):
+                for sub in ch.children:
+                    result.append(str(sub))
+        return result
 
-    def ID(self, s):
-        return s.value
+    def ID(self, s): return s.value
+    def STRING(self, s): return s.value.strip('"')
+    def INT(self, s): return int(s.value)
+    def AGENT_TYPE(self, s): return s.value
 
-    def STRING(self, s):
-        return s.value.strip('"')
 
-    def INT(self, s):
-        return int(s.value)
+# --- SANITIZAÇÃO FINAL
+def sanitize_tree(obj):
+    """Remove objetos Tree/Token e converte recursivamente."""
+    if isinstance(obj, Tree):
+        return sanitize_tree(obj.children[0]) if obj.children else None
+    if isinstance(obj, Token):
+        return str(obj.value)
+    if isinstance(obj, dict):
+        return {sanitize_tree(k): sanitize_tree(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [sanitize_tree(x) for x in obj]
+    if isinstance(obj, (str, int, float)) or obj is None:
+        return obj
+    return str(obj)
 
-    def AGENT_TYPE(self, s):
-        return s.value
 
 def parse_synai(code: str) -> dict:
     try:
         tree = parser.parse(code)
         transformer = SynTransformer()
         ast = transformer.transform(tree)
-        return ast
+        return sanitize_tree(ast)
+    except UnexpectedInput as e:
+        raise ValueError(f"Erro de parsing na linha {e.line}, coluna {e.column}: {e.get_context(code)}")
     except Exception as e:
         raise ValueError(f"Parse error: {e}")
-
-if __name__ == '__main__':
-    demo_code = '''orchestrator "demo" {
-  agents {
-    grok: LLM { model: "grok-4" capabilities: ["reason", "code"] }
-  }
-  workflow "simple" {
-    start: grok.intent("analyze", input: "data.txt")
-    connect grok.output -> grok.input { async: true timeout: 30s }
-    end: grok.intent("summarize", output: "result.txt")
-  }
-}
-run "demo" with workflow "simple"'''
-
-    try:
-        ast = parse_synai(demo_code)
-        print(json.dumps(ast, indent=2))
-    except Exception as e:
-        print(f"Error: {e}")

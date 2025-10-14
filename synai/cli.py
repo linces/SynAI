@@ -8,85 +8,89 @@ from .weaver import weave_linker
 
 @click.group()
 def cli():
-    """SynAI CLI: Orquestre IAs com DSL declarativa."""
+    """SynAI CLI - Orquestre IAs com DSL declarativa."""
 
 @cli.command()
 @click.argument('file_path')
-@click.option('-o', '--output', default=None, help='Output .synx file')
-def parse(file_path, output):
-    """Parse DSL file to AST."""
-
+@click.option('-o', '--output', default=None)
+@click.option('--verbose', is_flag=True)
+def parse(file_path, output, verbose):
     with open(file_path, 'r', encoding='utf-8') as f:
         code = f.read()
     ast = parse_synai(code)
-    click.echo(f"AST parsed: {ast['type']}")
+    if verbose:
+        click.echo(json.dumps(ast, indent=2))
     if output:
         os.makedirs(os.path.dirname(output) or '.', exist_ok=True)
         with open(output, 'w', encoding='utf-8') as of:
             json.dump(ast, of, indent=2)
-        click.echo(f"AST saved to {output}")
+        click.echo(f"AST salva em {output}")
+    else:
+        click.echo("AST gerada com sucesso.")
 
 @cli.command()
 @click.argument('file_path')
-@click.option('-o', '--output', default=None, help='Output .synx file')
-def build(file_path, output):
-    """Build DSL to validated AST."""
-
+@click.option('-o', '--output', default=None)
+@click.option('--verbose', is_flag=True)
+def build(file_path, output, verbose):
     with open(file_path, 'r', encoding='utf-8') as f:
         code = f.read()
     ast = parse_synai(code)
     validated = build_synai(ast)
-    click.echo("Build successful")
+    if verbose:
+        click.echo(json.dumps(validated, indent=2))
+    if validated.get('warnings'):
+        click.echo("Avisos:")
+        for w in validated['warnings']:
+            click.echo(f" ⚠️  {w}")
     if output:
         os.makedirs(os.path.dirname(output) or '.', exist_ok=True)
         with open(output, 'w', encoding='utf-8') as of:
             json.dump(validated, of, indent=2)
-        click.echo(f"Built to {output}")
+        click.echo(f"AST validada salva em {output}")
 
 @cli.command()
 @click.argument('synx_path')
-def link(synx_path):
-    """Link bytecode to runtime graph."""
-
+@click.option('--diagram', is_flag=True)
+def link(synx_path, diagram):
     with open(synx_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    ast = data.get('validated_ast', data)  # Fallback para AST direto
+    ast = data.get('validated_ast', data)
     output = synx_path.replace('.synx', '_linked.synx')
-    os.makedirs(os.path.dirname(output) or '.', exist_ok=True)
     result = weave_linker(ast, output)
     click.echo(result)
+
+    if diagram:
+        import matplotlib.pyplot as plt
+        G = nx.node_link_graph(json.load(open(output))['graph'])
+        nx.draw(G, with_labels=True, node_color='lightblue', node_size=1800, font_size=8)
+        plt.show()
 
 @cli.command()
 @click.argument('synx_path')
 def run(synx_path):
-    """Run linked workflow (simulated execution)."""
+    # Auto-detect linked file if not provided
+    if not synx_path.endswith('_linked.synx'):
+        linked_path = synx_path.replace('.synx', '_linked.synx')
+        if os.path.exists(linked_path):
+            synx_path = linked_path
+            click.echo(f"Usando arquivo linked: {synx_path}")
+        else:
+            click.echo(f"Erro: {synx_path} não encontrado. Rode 'synai link' antes.")
+            return
 
     if not os.path.exists(synx_path):
-        click.echo(f"Error: {synx_path} not found. Run 'synai link' first.")
+        click.echo(f"Erro: {synx_path} não encontrado.")
         return
 
-    click.echo(f"Running execution of {synx_path}...")
-    try:
-        with open(synx_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        if 'graph' not in data:
-            click.echo("Error: No graph in bytecode. Run 'synai link' first.")
-            return
-        G = nx.node_link_graph(data['graph'])
-        # Simulate topological execution
-        topo_order = list(nx.topological_sort(G))
-        for node in topo_order:
-            node_data = G.nodes.get(node, {})
-            if node_data.get('type') == 'intent':
-                input_val = node_data.get('input', 'N/A')
-                output_val = node_data.get('output', 'N/A')
-                click.echo(f"Executing intent: {node_data.get('agent', 'unknown')}.{node_data.get('name', 'unknown')} (input: {input_val}, output: {output_val})")
-        # Print connections
-        for edge in G.edges(data=True):
-            click.echo(f"Connecting {edge[0]} -> {edge[1]} with options: {edge[2]}")
-        click.echo("Workflow completed successfully.")
-    except Exception as e:
-        click.echo(f"Execution error: {e}")
+    data = json.load(open(synx_path))
+    G = nx.node_link_graph(data['graph'])
+    click.echo(f"Executando {synx_path}...")
+    for node in nx.topological_sort(G):
+        nd = G.nodes[node]
+        if nd.get('type') == 'intent':
+            click.echo(f"🎯 Intent {nd['agent']}.{nd['name']} (in={nd.get('input')}, out={nd.get('output')})")
+    click.echo("Execução simulada concluída.")
 
 if __name__ == '__main__':
     cli()
