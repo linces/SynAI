@@ -2,9 +2,11 @@ import click
 import os
 import json
 import networkx as nx
+import asyncio
 from .parse import parse_synai
 from .weave import build_synai
 from .weaver import weave_linker
+from .runtime import SynRuntime  # Assume runtime.py exists
 
 @click.group()
 def cli():
@@ -73,7 +75,8 @@ def link(synx_path, diagram):
 
 @cli.command()
 @click.argument('synx_path')
-def run(synx_path):
+@click.option('--real', is_flag=True, help='Use real API (requires ANTHROPIC_API_KEY)')
+def run(synx_path, real):
     # Auto-detect linked file with path fix (no double)
     dir_name = os.path.dirname(synx_path)
     base_name = os.path.basename(synx_path)
@@ -114,22 +117,28 @@ def run(synx_path):
         click.echo(f"Erro: Workflow '{wf_name}' not found.")
         return
 
-    click.echo(f"Executando workflow '{wf_name}' de '{orch_name}'...")
+    click.echo(f"Executando workflow '{wf_name}' de '{orch_name}' (real: {real})...")
     data_flow = {}  # Simulate data: key = output port, value = data
+    runtime = SynRuntime() if real else None
+
     for stmt in wf['statements']:
         if stmt['type'] == 'Intent':
             input_data = data_flow.get(f"{stmt['agent']}_input", stmt.get('input', 'N/A'))
-            click.echo(f"🎯 Executando intent {stmt['agent']}.{stmt['name']} (input: {input_data})")
-            # Mock output
-            output_data = f"result_{stmt['name']}"
-            data_flow[f"{stmt['agent']}_output"] = output_data
-            click.echo(f"   Output: {output_data}")
+            agent_config = next((a for block in orch['blocks'] if block['type'] == 'AgentsBlock' for a in block['agents'] if a['id'] == stmt['agent']), None)
+            if real and runtime:
+                # Real execution
+                output = asyncio.run(runtime._llm_adapter(agent_config, stmt, input_data))
+            else:
+                # Mock
+                output = f"mock_result_{stmt['name']}({input_data})"
+            data_flow[f"{stmt['agent']}_output"] = output
+            click.echo(f"🎯 Executando intent {stmt['agent']}.{stmt['name']} (input: {input_data}) → Output: {output}")
         elif stmt['type'] == 'Connect':
             from_data = data_flow.get(f"{stmt['from']}_output", 'N/A')
             data_flow[f"{stmt['to']}_input"] = from_data
-            click.echo(f"🔗 Conectando {stmt['from']}.output -> {stmt['to']}.input (data: {from_data}, options: {stmt['options']})")
+            click.echo(f"🔗 Conectando {stmt['from']}.output → {stmt['to']}.input (data: {from_data}, options: {stmt['options']})")
 
-    click.echo("Execução simulada concluída.")
+    click.echo("Execução concluída.")
 
 if __name__ == '__main__':
     cli()

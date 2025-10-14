@@ -4,6 +4,7 @@ setup.py
 synai/__init__.py
 synai/cli.py
 synai/parse.py
+synai/runtime.py
 synai/weave.py
 synai/weaver.py
 synai.egg-info/PKG-INFO
