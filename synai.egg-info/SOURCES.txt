@@ -1,0 +1,14 @@
+LICENSE
+README.md
+setup.py
+synai/__init__.py
+synai/cli.py
+synai/parse.py
+synai/weave.py
+synai/weaver.py
+synai.egg-info/PKG-INFO
+synai.egg-info/SOURCES.txt
+synai.egg-info/dependency_links.txt
+synai.egg-info/entry_points.txt
+synai.egg-info/requires.txt
+synai.egg-info/top_level.txt

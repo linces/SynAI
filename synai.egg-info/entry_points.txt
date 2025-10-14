@@ -1,0 +1,2 @@
+[console_scripts]
+synai = synai.cli:cli
