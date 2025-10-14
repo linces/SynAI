@@ -1,15 +1,15 @@
 {
   "type": "Program",
-  "id": "f2241477-f18b-4d9c-b860-1687275513a4",
+  "id": "048eb317-bdbe-43bb-9ed0-81a43060d51a",
   "declarations": [
     {
       "type": "Orchestrator",
-      "id": "e8e041e5-ed3a-467b-b52b-ba65cb86e4c1",
+      "id": "7737a793-e3bb-4e6e-8df9-6e45a679be6b",
       "name": "demo",
       "blocks": [
         {
           "type": "AgentsBlock",
-          "id": "6c25c4f6-8de7-4d46-bf78-e3ef5bb04f9b",
+          "id": "a360e68d-d0f4-422b-9628-cddc524e0603",
           "agents": [
             {
               "type": "Agent",
@@ -27,12 +27,12 @@
         },
         {
           "type": "Workflow",
-          "id": "cf12f7f8-71fc-428a-91c8-2a996492e478",
+          "id": "4ef40c57-23a7-44b5-99e1-1541d2889c28",
           "name": "simple",
           "statements": [
             {
               "type": "Intent",
-              "id": "2472b853-36a4-4bf8-a39a-946e7eb09e25",
+              "id": "bcdd0d77-86e3-40a1-bc12-4e2915543f75",
               "agent": "grok",
               "name": "analyze",
               "input": "data.txt",
@@ -40,7 +40,7 @@
             },
             {
               "type": "Connect",
-              "id": "0b875695-3537-4acc-a128-e4bbcb46ba26",
+              "id": "5110bfa2-3d9b-475d-8572-bdf315d43172",
               "from": "grok",
               "to": "grok",
               "options": {
@@ -50,7 +50,7 @@
             },
             {
               "type": "Intent",
-              "id": "b0215552-db48-4a8c-b91b-3dbae0987617",
+              "id": "262dde2b-a15f-4fc0-bda5-8c291eb6eb2e",
               "agent": "grok",
               "name": "summarize",
               "input": null,
@@ -62,7 +62,7 @@
     },
     {
       "type": "Run",
-      "id": "a60a98c9-288f-4ed2-896c-ad1bae1148a0",
+      "id": "1e25fe84-313c-456d-9d3c-a850818e3cf2",
       "orchestrator": "demo",
       "workflow": "simple"
     }
