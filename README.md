@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.8%2B-laranja.svg)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-alfa-amarelo.svg)](https://github.com/linces/SynAI)
 
-> 🧠 **SynAI v1.3** — Uma linguagem declarativa para orquestração e colaboração entre agentes de IA, construída para interoperar nativamente com protocolos de contexto como o MCP da Anthropic.
+> 🧠 **SynAI v1.3** — Uma linguagem declarativa para orquestração e colaboração entre agentes de IA, construída para interoperar nativamente com protocolos de contexto como o HTTP, gRPC, MQTT ou MCP da Anthropic.
 
 
 O SynAI é uma linguagem cognitiva declarativa que descreve como inteligências artificiais cooperam para atingir metas, em vez de como elas executam código. Inspirado em anos de experiência em desenvolvimento robusto (de Delphi a Python), este projeto visa criar o "sistema operacional" para redes de IA colaborativas.
