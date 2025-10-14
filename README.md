@@ -316,7 +316,7 @@ run "Demo" with workflow "ResumoDeTexto";
 2. **SynWeaver** + **SynStudio** → Runtime execution
 3. Deploy para Mesh (local/cloud)
 
-## ⚙️ Roadmap de Implementação
+## Roadmap de Implementação
 
 | Etapa | Descrição | Status |
 |-------|-----------|--------|
@@ -353,7 +353,7 @@ run "Demo" with workflow "ResumoDeTexto";
 
 **Contato:** Para colaborações ou suporte, entre em contato via [linces@gmail.com](mailto:linces@gmail.com) ou [WhatsApp](https://wa.me/+5534999623545).
 
-## 📄 Licença
+## Licença
 
 MIT License — veja [LICENSE](LICENSE).
 
