@@ -1,14 +1,33 @@
-orchestrator "demo" {
+orchestrator "demo_advanced" {
   agents {
-    grok: LLM {
-      model: "grok-4"
-      capabilities: ["reason", "code"]
+    analyzer: LLM {
+      model: "claude-3-opus-20240229"
+      capabilities: ["reason", "analyze"]
+      endpoint: "https://api.anthropic.com/v1"
+    }
+    coder: LLM {
+      model: "grok-beta"
+      capabilities: ["code", "generate"]
+      endpoint: "https://api.x.ai/v1"
+    }
+    summarizer: LLM {
+      model: "claude-3-sonnet-20240229"
+      capabilities: ["summarize", "reason"]
+      endpoint: "https://api.anthropic.com/v1"
+    }
+    visualizer: Vision {
+      model: "gpt-4-vision-preview"
+      capabilities: ["image_analyze", "describe"]
+      endpoint: "https://api.openai.com/v1"
     }
   }
-  workflow "simple" {
-    start: grok.intent("analyze", input: "data.txt")
-    connect grok.output -> grok.input { async: true timeout: 30s }
-    end: grok.intent("summarize", output: "result.txt")
+  workflow "data_pipeline" {
+    start: analyzer.intent("analyze_data", input: "data.txt", output: "analysis.json")
+    connect analyzer.output -> visualizer.input { async: true timeout: 10s transform: "json_to_image" }
+    connect visualizer.output -> coder.input { retry: 3 filter: "success" }
+    coder.intent("generate_code", input: "analysis.json", output: "script.py") { capabilities: ["code"] }
+    connect coder.output -> summarizer.input { async: false timeout: 5s }
+    end: summarizer.intent("generate_summary", input: "script.py", output: "final_report.md")
   }
 }
-run "demo" with workflow "simple"
+run "demo_advanced" with workflow "data_pipeline"

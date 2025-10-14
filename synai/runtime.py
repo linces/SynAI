@@ -63,28 +63,35 @@ class SynRuntime:
         """Adapter para LLM (Anthropic ou xAI baseado no model)."""
         model = config['properties']['model']
         prompt = f"Execute {intent['name']} com input: {input_data}. Output format: {intent.get('output', 'text')}."
+        print(f"[DEBUG] Prompt enviado: {prompt[:100]}... (model: {model})")  # Log para debug
         
         if 'grok' in model.lower() and self.client_grok:
             # xAI Grok
+            print("[DEBUG] Chamando xAI Grok...")
             try:
                 response = self.client_grok.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=1024
                 )
-                return response.choices[0].message.content or "No response"
+                output = response.choices[0].message.content or "No response"
+                print(f"[DEBUG] Resposta Grok: {output[:100]}...")
+                return output
             except openai.APIError as e:
                 print(f"Erro na xAI API: {e}. Usando fallback mock.")
                 return f"grok_mock_{intent['name']} (erro: {e})"
         elif self.client_anthro:
             # Anthropic Claude
+            print("[DEBUG] Chamando Anthropic Claude...")
             try:
                 message = self.client_anthro.messages.create(
                     model=model,
                     max_tokens=1024,
                     messages=[{"role": "user", "content": prompt}]
                 )
-                return message.content[0].text if message.content else "No response"
+                output = message.content[0].text if message.content else "No response"
+                print(f"[DEBUG] Resposta Claude: {output[:100]}...")
+                return output
             except anthropic.BadRequestError as e:
                 if "credit balance is too low" in str(e):
                     print("Créditos baixos — vá ao console para adicionar: https://console.anthropic.com/settings/plans")
