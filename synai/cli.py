@@ -69,14 +69,18 @@ def run(synx_path):
     try:
         with open(synx_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
+        if 'graph' not in data:
+            click.echo("Error: No graph in bytecode. Run 'synai link' first.")
+            return
         G = nx.node_link_graph(data['graph'])
         # Simulate topological execution
-        for node in list(nx.topological_sort(G)):
-            node_data = G.nodes[node]
+        topo_order = list(nx.topological_sort(G))
+        for node in topo_order:
+            node_data = G.nodes.get(node, {})
             if node_data.get('type') == 'intent':
                 input_val = node_data.get('input', 'N/A')
                 output_val = node_data.get('output', 'N/A')
-                click.echo(f"Executing intent: {node_data['agent']}.{node_data['name']} (input: {input_val}, output: {output_val})")
+                click.echo(f"Executing intent: {node_data.get('agent', 'unknown')}.{node_data.get('name', 'unknown')} (input: {input_val}, output: {output_val})")
         # Print connections
         for edge in G.edges(data=True):
             click.echo(f"Connecting {edge[0]} -> {edge[1]} with options: {edge[2]}")

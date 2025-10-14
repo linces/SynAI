@@ -1,5 +1,6 @@
 import networkx as nx
 import json
+import os
 from .weave import build_synai
 
 def weave_linker(ast: dict, output_path: str = None) -> dict:
@@ -42,9 +43,17 @@ def weave_linker(ast: dict, output_path: str = None) -> dict:
 
 # Exemplo de uso
 if __name__ == '__main__':
-    from .parse import parse_synai
-    with open('../examples/demo.synai', 'r') as f:
-        code = f.read()
-    ast = parse_synai(code)
-    result = weave_linker(ast, 'demo_linked.synx')
-    print(result)
+    try:
+        from .parse import parse_synai
+        demo_path = '../examples/demo.synai'
+        if os.path.exists(demo_path):
+            with open(demo_path, 'r', encoding='utf-8') as f:
+                code = f.read()
+            ast = parse_synai(code)
+        else:
+            print("Demo file not found, skipping.")
+            ast = {'type': 'Program', 'declarations': []}  # Mock
+        result = weave_linker(ast, 'demo_linked.synx')
+        print(result)
+    except Exception as e:
+        print(f"Example error: {e}")
