@@ -46,8 +46,10 @@ ID: /[a-zA-Z_][a-zA-Z0-9_]*/
 STRING: /"[^"]*"/
 INT: /[0-9]+/
 BOOL: "true" | "false"  # New: for boolean options
+COMMENT: /#.*/
 %import common.WS
 %ignore WS
+%ignore COMMENT
 '''
 
 parser = Lark(grammar, start='program')
