@@ -90,7 +90,9 @@ class SynRuntime:
                 input_data = data_flow.get(f"{agent_id}_input", stmt.get('input', 'N/A'))
                 print(f"🎯 Executando intent {agent_id}.{stmt['name']} (input: {input_data})")
 
-                if (mock or not self.real) and agent_cfg.get('agent_type') != 'TOOL':
+                res_type = agent_cfg['properties'].get('agent_type', agent_cfg.get('agent_type', 'LLM'))
+                resolved_type = str(res_type).replace('"', '').upper()
+                if (mock or not self.real) and resolved_type != 'TOOL':
                     output = f"mock_result_{stmt['name']}({input_data})"
                 else:
                     output = await self._dispatch_to_adapter(agent_cfg, stmt, input_data)
@@ -136,8 +138,9 @@ class SynRuntime:
     async def _dispatch_to_adapter(self, agent_cfg: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
         """Envia execução ao adapter certo (baseado no tipo de agente)."""
         # Priorizar agent_type definido nas propriedades, senao usar o AGENT_TYPE do DSL
-        agent_type = agent_cfg['properties'].get('agent_type', agent_cfg.get('agent_type', 'LLM'))
-        adapter = self.adapters.get(agent_type.upper())
+        res_type = agent_cfg['properties'].get('agent_type', agent_cfg.get('agent_type', 'LLM'))
+        agent_type = str(res_type).replace('"', '').upper()
+        adapter = self.adapters.get(agent_type)
         if not adapter:
             print(f"⚠️  Adapter '{agent_type}' não implementado — fallback mock.")
             return f"mock_result_{intent['name']}({input_data})"
@@ -153,7 +156,8 @@ class SynRuntime:
 
     async def _tool_adapter(self, config: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
         """Adapter para execução de ferramentas locais."""
-        tool_name = config['properties'].get('function', intent['name'])
+        res_func = config['properties'].get('function', intent['name'])
+        tool_name = str(res_func).replace('"', '')
         print(f"🛠️  Executando Ferramenta: {tool_name}({input_data})")
         
         if tool_name in self.tools:
