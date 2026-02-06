@@ -19,8 +19,9 @@ class SynRuntime:
         self.real = real
         self.adapters = {
             'LLM': self._llm_adapter,
-            # futuro: Vision, Tool, Chain, etc.
+            'TOOL': self._tool_adapter,
         }
+        self.tools: Dict[str, Any] = {}
 
         # Configuração Anthropic
         anthro_key = api_key or os.getenv('ANTHROPIC_API_KEY')
@@ -89,7 +90,7 @@ class SynRuntime:
                 input_data = data_flow.get(f"{agent_id}_input", stmt.get('input', 'N/A'))
                 print(f"🎯 Executando intent {agent_id}.{stmt['name']} (input: {input_data})")
 
-                if mock or not self.real:
+                if (mock or not self.real) and agent_cfg.get('agent_type') != 'TOOL':
                     output = f"mock_result_{stmt['name']}({input_data})"
                 else:
                     output = await self._dispatch_to_adapter(agent_cfg, stmt, input_data)
@@ -134,12 +135,39 @@ class SynRuntime:
 
     async def _dispatch_to_adapter(self, agent_cfg: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
         """Envia execução ao adapter certo (baseado no tipo de agente)."""
-        agent_type = agent_cfg.get('agent_type', 'LLM')
-        adapter = self.adapters.get(agent_type)
+        # Priorizar agent_type definido nas propriedades, senao usar o AGENT_TYPE do DSL
+        agent_type = agent_cfg['properties'].get('agent_type', agent_cfg.get('agent_type', 'LLM'))
+        adapter = self.adapters.get(agent_type.upper())
         if not adapter:
             print(f"⚠️  Adapter '{agent_type}' não implementado — fallback mock.")
             return f"mock_result_{intent['name']}({input_data})"
         return await adapter(agent_cfg, intent, input_data)
+
+    # ------------------------------------------------------------------------
+    # FERRAMENTAS (Tools)
+    # ------------------------------------------------------------------------
+    def register_tool(self, name: str, func: Any):
+        """Registra uma função Python como ferramenta executável."""
+        self.tools[name] = func
+        print(f"[SynAI] 🛠️  Ferramenta registrada: {name}")
+
+    async def _tool_adapter(self, config: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
+        """Adapter para execução de ferramentas locais."""
+        tool_name = config['properties'].get('function', intent['name'])
+        print(f"🛠️  Executando Ferramenta: {tool_name}({input_data})")
+        
+        if tool_name in self.tools:
+            try:
+                func = self.tools[tool_name]
+                if asyncio.iscoroutinefunction(func):
+                    result = await func(input_data)
+                else:
+                    result = func(input_data)
+                return str(result)
+            except Exception as e:
+                return f"Erro na execução da ferramenta {tool_name}: {e}"
+        else:
+            return f"Erro: Ferramenta '{tool_name}' não registrada no runtime."
 
     # ------------------------------------------------------------------------
     # ADAPTADOR LLM (Anthropic, xAI)
