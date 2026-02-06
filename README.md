@@ -158,6 +158,23 @@ O runtime SynAI injeta esse bridge quando necessário.
 | ⚙️ Modularidade                 | Cada agente escolhe o transporte ideal (local, HTTP, MCP, MQTT). |
 | 🧩 Extensibilidade              | Adapte para novos protocolos facilmente.                         |
 
+## Novidades da Versão 3.0 (Tática & Cognição)
+
+O SynAI evoluiu para suportar agentes que **agem**, **lembram** e **se corrigem**:
+
+1.  **Tool Adapters (`agent_type: "TOOL"`)**
+    - Agentes agora podem executar funções Python locais (ex: ler logs, listar arquivos, matar processos).
+    - Integração nativa com scripts de manutenção e web scraping.
+
+2.  **Memória Tática (MemoryVault)**
+    - Persistência de estado entre execuções. O SynAI agora suporta comandos `store_memory` e `get_memory` para que agentes aprendam com o passado.
+
+3.  **Gramática 3.1 (Comentários)**
+    - Suporte completo a comentários (`#`) dentro dos arquivos `.synai`, permitindo documentação rica in-code para workflows complexos.
+
+4.  **Autocorreção (Health Check)**
+    - Workflows que verificam a saúde do sistema (`verify_process`) antes e depois de agir.
+
 ## Futuro: SynAI Mesh + MCP Grid
 
 Próximo: Modo **Mesh** para descoberta dinâmica de agentes via service discovery.
@@ -172,6 +189,28 @@ discovery {
 ```
 
 Isso habilita redes distribuídas onde IAs se auto-descobrem e colaboram em tempo real.
+
+## Casos de Uso Reais
+
+O SynAI brilha onde a governança é crítica e o "caos criativo" dos LLMs precisa de trilhos:
+
+### 1. DevOps & SRE Autônomo
+
+- **Cenário**: Um deploy falha no Kubernetes.
+- **SynAI**: O "Agente SRE" lê os últimos 50 logs -> Decide se é infra ou código -> Executa rollback automático ou reinicia o pod. Tudo sem intervenção humana, seguindo um playbook rígido.
+
+### 2. Fábricas de Conteúdo Industrial (Marketing)
+
+- **Cenário**: Criar 50 artigos de blog mantendo a consistência.
+- **SynAI**: Workflow de linha de montagem.
+  - _Pesquisador_: Busca fatos (Web Search).
+  - _Redator_: Escreve baseado APENAS nos fatos.
+  - _Editor_: Aprova ou devolve para reescrita (Loop de Feedback).
+
+### 3. Atendimento Enterprise (Jurídico/Financeiro)
+
+- **Cenário**: Aprovação de reembolso sensível.
+- **SynAI**: O agente verifica as regras no PDF da política. Se o valor for > R$ 1.000, o workflow _obriga_ o escalonamento para um humano. Zero alucinação em processos críticos.
 
 ## Ecossistema SynAI
 
