@@ -87,7 +87,19 @@ class SynRuntime:
                     print(f"⚠️  Agente '{agent_id}' não encontrado — ignorando intent '{stmt['name']}'")
                     continue
 
-                input_data = data_flow.get(f"{agent_id}_input", stmt.get('input', 'N/A'))
+                # Determinar input (Prioridade: 1. Variável | 2. Literal no DSL | 3. Conexão direta)
+                dsl_input = stmt.get('input', 'N/A')
+                connected_input = data_flow.get(f"{agent_id}_input")
+                
+                if dsl_input in data_flow:
+                    input_data = data_flow[dsl_input]
+                elif dsl_input != 'N/A' and dsl_input != agent_id:
+                    input_data = dsl_input
+                elif connected_input:
+                    input_data = connected_input
+                else:
+                    input_data = dsl_input
+
                 print(f"🎯 Executando intent {agent_id}.{stmt['name']} (input: {input_data})")
 
                 res_type = agent_cfg['properties'].get('agent_type', agent_cfg.get('agent_type', 'LLM'))
@@ -97,7 +109,11 @@ class SynRuntime:
                 else:
                     output = await self._dispatch_to_adapter(agent_cfg, stmt, input_data)
 
+                # Salvar output (no ID do agente para retrocompatibilidade e no nome da variável se existir)
                 data_flow[f"{agent_id}_output"] = output
+                if stmt.get('output'):
+                    data_flow[stmt['output']] = output
+                    
                 results.append({'intent': stmt['name'], 'agent': agent_id, 'output': output})
 
             # -------------------------------
