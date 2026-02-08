@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: synai
-Version: 1.4
+Version: 1.5
 Summary: SynAI: Cognitive Mesh Language for AI Orchestration
 Author: Linces Marques
 Author-email: linces@gmail.com
@@ -9,6 +9,11 @@ Requires-Dist: lark
 Requires-Dist: click
 Requires-Dist: networkx
 Requires-Dist: jsonschema
+Requires-Dist: anthropic
+Requires-Dist: openai
+Requires-Dist: google-generativeai
+Requires-Dist: python-dotenv
+Requires-Dist: httpx
 Dynamic: author
 Dynamic: author-email
 Dynamic: license-file

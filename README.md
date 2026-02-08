@@ -150,13 +150,13 @@ O runtime SynAI injeta esse bridge quando necessário.
 
 ## Benefícios da Integração com MCP
 
-| Benefício                       | Explicação                                                       |
-| ------------------------------- | ---------------------------------------------------------------- |
-| 🌍 Interoperabilidade universal | Conecta SynAI com Anthropic, OpenAI, HuggingFace, etc.           |
-| 🧱 Abstração total              | Desenvolva fluxos sem conhecer o protocolo subjacente.           |
-| 🛡️ Segurança                    | Herda permissões e isolamento do MCP.                            |
-| ⚙️ Modularidade                 | Cada agente escolhe o transporte ideal (local, HTTP, MCP, MQTT). |
-| 🧩 Extensibilidade              | Adapte para novos protocolos facilmente.                         |
+| Benefício                       | Explicação                                                         |
+| ------------------------------- | ------------------------------------------------------------------ |
+| 🌍 Interoperabilidade universal | Conecta SynAI com Anthropic, OpenAI, xAI (Grok) e Google (Gemini). |
+| 🧱 Abstração total              | Desenvolva fluxos sem conhecer o protocolo subjacente.             |
+| 🛡️ Segurança                    | Herda permissões e isolamento do MCP.                              |
+| ⚙️ Modularidade                 | Cada agente escolhe o transporte ideal (local, HTTP, MCP, MQTT).   |
+| 🧩 Extensibilidade              | Adapte para novos protocolos facilmente.                           |
 
 ## Novidades da Versão 3.0 (Tática & Cognição)
 

@@ -2,6 +2,7 @@ import asyncio
 from typing import Dict, Any, Optional
 import anthropic
 import openai
+import google.generativeai as genai
 import os
 import json
 from dotenv import load_dotenv
@@ -15,7 +16,7 @@ class SynRuntime:
     Gerencia runtime, comunicação entre agentes e execução de intents.
     """
 
-    def __init__(self, api_key: Optional[str] = None, xai_key: Optional[str] = None, real: bool = False):
+    def __init__(self, api_key: Optional[str] = None, xai_key: Optional[str] = None, google_key: Optional[str] = None, real: bool = False):
         self.real = real
         self.adapters = {
             'LLM': self._llm_adapter,
@@ -51,6 +52,17 @@ class SynRuntime:
                 print("[SynAI] ✅ xAI (Grok) key carregada.")
             except Exception as e:
                 print(f"[SynAI] ❌ Erro ao inicializar xAI: {e}")
+
+        # Configuração Gemini (Google)
+        g_key = google_key or os.getenv('GOOGLE_API_KEY')
+        self.client_gemini = False
+        if g_key:
+            try:
+                genai.configure(api_key=g_key)
+                self.client_gemini = True
+                print("[SynAI] ✅ Gemini (Google) key carregada.")
+            except Exception as e:
+                print(f"[SynAI] ❌ Erro ao inicializar Gemini: {e}")
 
     # ------------------------------------------------------------------------
     # EXECUÇÃO DE WORKFLOW
@@ -197,51 +209,92 @@ class SynRuntime:
         model = config['properties'].get('model', 'unknown')
         endpoint = config['properties'].get('endpoint', '')
         prompt = f"Tarefa: {intent['name']}\nInput: {input_data}\nFormato de saída: {intent.get('output', 'texto')}."
-        print(f"🧠 Executando LLM {config['id']} ({model}) → endpoint: {endpoint}")
+        return await self.call_model(model, prompt, max_tokens=512, endpoint=endpoint)
+
+    # ------------------------------------------------------------------------
+    # CHAMADA DIRETA DE MODELO (Public API)
+    # ------------------------------------------------------------------------
+    async def call_model(self, model: str, prompt: str, max_tokens: int = 1024, endpoint: str = "") -> str:
+        """Invoca um LLM diretamente com prompt e modelo."""
+        print(f"🧠 Executando LLM ({model}){' → ' + endpoint if endpoint else ''}")
 
         # xAI Grok
-        if 'grok' in model.lower() and self.client_grok:
-            try:
-                response = self.client_grok.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=512
-                )
-                out = response.choices[0].message.content or "(sem resposta)"
-                print(f"💾 Resposta Grok ({len(out)} chars)")
-                return out
-            except Exception as e:
-                print(f"⚠️  Erro xAI ({model}): {e}")
-                return f"grok_mock_{intent['name']} (erro: {e})"
+        if 'grok' in model.lower():
+            if self.client_grok:
+                try:
+                    response = self.client_grok.chat.completions.create(
+                        model=model,
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=max_tokens
+                    )
+                    out = response.choices[0].message.content or "(sem resposta)"
+                    print(f"💾 Resposta Grok ({len(out)} chars)")
+                    return out
+                except Exception as e:
+                    print(f"⚠️  Erro xAI ({model}): {e}")
+                    return f"grok_mock (erro: {e})"
+            else:
+                print(f"❌ Erro: Modelo '{model}' solicitado mas XAI_API_KEY não configurada.")
+                return f"error: missing xai key for {model}"
+
+        # Gemini (Google)
+        elif 'gemini' in model.lower():
+            if self.client_gemini:
+                try:
+                    gen_model = genai.GenerativeModel(model)
+                    response = gen_model.generate_content(prompt)
+                    out = response.text or "(sem resposta)"
+                    print(f"💾 Resposta Gemini ({len(out)} chars)")
+                    return out
+                except Exception as e:
+                    print(f"⚠️ Erro Gemini ({model}): {e}")
+                    return f"gemini_mock ({e})"
+            else:
+                print(f"❌ Erro: Modelo '{model}' solicitado mas GOOGLE_API_KEY não configurada.")
+                return f"error: missing google key for {model}"
 
         # Anthropic Claude
-        elif self.client_anthro:
-            try:
-                msg = self.client_anthro.messages.create(
-                    model=model,
-                    max_tokens=512,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                out = msg.content[0].text if msg.content else "(vazio)"
-                print(f"💾 Resposta Claude ({len(out)} chars)")
-                return out
-            except anthropic.BadRequestError as e:
-                if "credit balance" in str(e):
-                    print("💸 Créditos insuficientes Anthropic.")
-                    return f"claude_mock_{intent['name']} (sem créditos)"
-                elif "invalid x-api-key" in str(e):
-                    print("🔑 Key Anthropic inválida.")
-                    return f"claude_mock_{intent['name']} (key inválida)"
-                else:
-                    print(f"⚠️ Erro Claude: {e}")
-                    return f"claude_mock_{intent['name']} ({e})"
-            except Exception as e:
-                print(f"⚠️ Erro inesperado Claude: {e}")
-                return f"claude_mock_{intent['name']} ({e})"
+        elif 'claude' in model.lower() or self.client_anthro:
+            if self.client_anthro:
+                try:
+                    msg = self.client_anthro.messages.create(
+                        model=model if 'claude' in model.lower() else "claude-3-haiku-20240307",
+                        max_tokens=max_tokens,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    out = msg.content[0].text if msg.content else "(vazio)"
+                    print(f"💾 Resposta Claude ({len(out)} chars)")
+                    return out
+                except Exception as e:
+                    print(f"⚠️ Erro Claude ({model}): {e}")
+                    return f"claude_mock ({e})"
+            else:
+                print(f"❌ Erro: Modelo '{model}' solicitado mas ANTHROPIC_API_KEY não configurada.")
+                return f"error: missing anthropic key for {model}"
 
         else:
-            print("⚠️ Nenhuma API configurada — fallback mock.")
-            return f"mock_result_{intent['name']}({input_data})"
+            print(f"⚠️ Nenhuma API configurada para o modelo '{model}' — fallback mock.")
+            return f"mock_result({model})"
+
+    # ------------------------------------------------------------------------
+    # GERAÇÃO DE EMBEDDINGS (RAG Support)
+    # ------------------------------------------------------------------------
+    async def get_embedding(self, text: str, model: str = "models/text-embedding-004") -> Optional[list]:
+        """Gera um vetor de embedding para o texto fornecido."""
+        if not self.client_gemini:
+            print("❌ Erro: get_embedding falhou. Gemini não configurado.")
+            return None
+        
+        try:
+            result = genai.embed_content(
+                model=model,
+                content=text,
+                task_type="retrieval_document"
+            )
+            return result['embedding']
+        except Exception as e:
+            print(f"⚠️ Erro ao gerar embedding: {e}")
+            return None
 
 
 # ------------------------------------------------------------------------

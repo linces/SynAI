@@ -13,3 +13,6 @@ synai.egg-info/dependency_links.txt
 synai.egg-info/entry_points.txt
 synai.egg-info/requires.txt
 synai.egg-info/top_level.txt
+synai/network/__init__.py
+synai/network/discovery.py
+synai/network/mesh.py

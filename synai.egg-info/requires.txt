@@ -2,3 +2,8 @@ lark
 click
 networkx
 jsonschema
+anthropic
+openai
+google-generativeai
+python-dotenv
+httpx
