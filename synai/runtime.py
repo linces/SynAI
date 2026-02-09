@@ -279,7 +279,7 @@ class SynRuntime:
     # ------------------------------------------------------------------------
     # GERAÇÃO DE EMBEDDINGS (RAG Support)
     # ------------------------------------------------------------------------
-    async def get_embedding(self, text: str, model: str = "models/text-embedding-004") -> Optional[list]:
+    async def get_embedding(self, text: str, model: str = "models/gemini-embedding-001") -> Optional[list]:
         """Gera um vetor de embedding para o texto fornecido."""
         if not self.client_gemini:
             print("❌ Erro: get_embedding falhou. Gemini não configurado.")
