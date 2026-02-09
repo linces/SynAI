@@ -245,7 +245,7 @@ class SynRuntime:
                 if stmt.get('output'):
                     data_flow[stmt['output']] = result
                     
-                results.append({'intent': stmt['name'], 'agent': agent_id, 'output': output})
+                results.append({'intent': stmt['name'], 'agent': agent_id, 'output': result})
 
             # -------------------------------
             # CONNECT (ligação de agentes)
@@ -375,20 +375,26 @@ class SynRuntime:
     # GERAÇÃO DE EMBEDDINGS (RAG Support)
     # ------------------------------------------------------------------------
     async def get_embedding(self, text: str, model: str = "models/gemini-embedding-001") -> Optional[list]:
-        """Gera um vetor de embedding para o texto fornecido."""
-        if not self.client_gemini:
-            print("❌ Erro: get_embedding falhou. Gemini não configurado.")
+        """Gera um vetor de embedding via Driver (Google Default)."""
+        # Tentar usar o Driver do Google primeiro
+        driver = self.llm_providers.get("google")
+        
+        if not driver:
+             print("⚠️ Aviso: Driver 'google' não encontrado para embeddings. Tentando outros...")
+             for name, d in self.llm_providers.items():
+                 if hasattr(d, 'get_embedding'):
+                     driver = d
+                     break
+        
+        if not driver:
+            print("❌ Erro: Nenhum driver capaz de gerar embeddings foi registrado.")
             return None
         
         try:
-            result = genai.embed_content(
-                model=model,
-                content=text,
-                task_type="retrieval_document"
-            )
-            return result['embedding']
+            # O driver já deve tratar a chamada interna
+            return await driver.get_embedding(text)
         except Exception as e:
-            print(f"⚠️ Erro ao gerar embedding: {e}")
+            print(f"⚠️ Erro ao gerar embedding via driver: {e}")
             return None
 
 
