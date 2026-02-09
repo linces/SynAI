@@ -1,68 +1,193 @@
 import asyncio
 from typing import Dict, Any, Optional
-import anthropic
-import openai
-import google.generativeai as genai
 import os
 import json
 from dotenv import load_dotenv
+from .interfaces import LLMProvider
 
 # Carrega .env automaticamente
 load_dotenv()
 
 class SynRuntime:
     """
-    Núcleo de execução do SynAI.
-    Gerencia runtime, comunicação entre agentes e execução de intents.
+    Núcleo de execução do SynAI (Versão Agnóstica).
+    Gerencia runtime, comunicação entre agentes e execução de intents via Drivers.
     """
 
-    def __init__(self, api_key: Optional[str] = None, xai_key: Optional[str] = None, google_key: Optional[str] = None, real: bool = False):
+    def __init__(self, real: bool = False):
         self.real = real
         self.adapters = {
             'LLM': self._llm_adapter,
             'TOOL': self._tool_adapter,
         }
         self.tools: Dict[str, Any] = {}
+        self.llm_providers: Dict[str, LLMProvider] = {}
+        self.default_provider: Optional[str] = None
 
-        # Configuração Anthropic
-        anthro_key = api_key or os.getenv('ANTHROPIC_API_KEY')
-        self.client_anthro = None
-        if anthro_key:
-            try:
-                self.client_anthro = anthropic.Anthropic(api_key=anthro_key)
-                # Teste básico de validade
-                try:
-                    self.client_anthro.messages.create(
-                        model="claude-3-opus-20240229",
-                        max_tokens=1,
-                        messages=[{"role": "user", "content": "ping"}]
-                    )
-                    print("[SynAI] ✅ Anthropic key validada.")
-                except Exception:
-                    print("[SynAI] ⚠️ Anthropic inicializado (sem teste de ping).")
-            except Exception as e:
-                print(f"[SynAI] ❌ Erro ao inicializar Anthropic: {e}")
+    def register_llm_provider(self, alias: str, provider: LLMProvider, set_default: bool = False):
+        """Registra um driver de LLM (ex: 'anthropic', 'openai', 'local')."""
+        self.llm_providers[alias] = provider
+        if set_default or not self.default_provider:
+            self.default_provider = alias
+        print(f"[SynAI] 🧠 Driver de LLM registrado: {alias}")
 
-        # Configuração xAI (Grok)
-        xai_key = xai_key or os.getenv('XAI_API_KEY')
-        self.client_grok = None
-        if xai_key:
-            try:
-                self.client_grok = openai.OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
-                print("[SynAI] ✅ xAI (Grok) key carregada.")
-            except Exception as e:
-                print(f"[SynAI] ❌ Erro ao inicializar xAI: {e}")
+    # ------------------------------------------------------------------------
+    # EXECUÇÃO DE WORKFLOW
+    # ------------------------------------------------------------------------
+    async def execute_workflow(self, ast: Dict[str, Any], run_decl: Dict[str, Any], mock: bool = True) -> Dict[str, Any]:
+        """Executa um workflow SynAI completo."""
+        orch_name = run_decl['orchestrator']
+        wf_name = run_decl['workflow']
 
-        # Configuração Gemini (Google)
-        g_key = google_key or os.getenv('GOOGLE_API_KEY')
-        self.client_gemini = False
-        if g_key:
+        orch = next((d for d in ast['declarations']
+                     if d['type'] == 'Orchestrator' and d['name'] == orch_name), None)
+        if not orch:
+            raise ValueError(f"❌ Orchestrator '{orch_name}' não encontrado no AST.")
+
+        wf = next((b for b in orch['blocks']
+                   if b['type'] == 'Workflow' and b['name'] == wf_name), None)
+        if not wf:
+            raise ValueError(f"❌ Workflow '{wf_name}' não encontrado no Orchestrator '{orch_name}'.")
+
+        data_flow = {}
+        results = []
+        print(f"🚀 Iniciando execução do workflow '{wf_name}' de '{orch_name}' (modo real: {self.real})")
+
+        for stmt in wf['statements']:
+            stmt_type = stmt['type']
+
+            # -------------------------------
+            # INTENT (execução de agente)
+            # -------------------------------
+            if stmt_type == 'Intent':
+                agent_id = stmt['agent']
+                agent_cfg = self._get_agent_config(orch, agent_id)
+                if not agent_cfg:
+                    print(f"⚠️  Agente '{agent_id}' não encontrado — ignorando intent '{stmt['name']}'")
+                    continue
+
+                # Resolver input
+                raw_input = stmt.get('input', '')
+                input_data = self._resolve_input(raw_input, data_flow)
+
+                print(f"⚡ Executing intent: {stmt['name']} ({agent_id})")
+                
+                # Dispatch para Adapter
+                result = await self._dispatch_to_adapter(agent_cfg, stmt, input_data)
+                
+                # Armazenar resultado
+                results.append({'intent': stmt['name'], 'result': result})
+                data_flow[stmt['name']] = result
+
+        print("✅ Execução concluída com sucesso.")
+        return {'status': 'completed', 'results': results, 'flow': data_flow}
+
+    # ------------------------------------------------------------------------
+    # HELPERS
+    # ------------------------------------------------------------------------
+    def _get_agent_config(self, orch: Dict[str, Any], agent_id: str) -> Optional[Dict[str, Any]]:
+        """Retorna o bloco de configuração de um agente pelo ID."""
+        for block in orch.get('blocks', []):
+            if block['type'] == 'AgentsBlock':
+                for agent in block['agents']:
+                    if agent['id'] == agent_id:
+                        return agent
+        return None
+
+    def _resolve_input(self, raw_input: Any, data_flow: Dict[str, Any]) -> str:
+        """Resolve referências como result('IntentName')."""
+        if isinstance(raw_input, str) and raw_input.startswith("result(") and raw_input.endswith(")"):
+            target_intent = raw_input[7:-1].replace('"', '').replace("'", "")
+            return data_flow.get(target_intent, f"(resultado de {target_intent} não encontrado)")
+        return str(raw_input)
+
+    async def _dispatch_to_adapter(self, agent_cfg: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
+        """Envia execução ao adapter certo (baseado no tipo de agente)."""
+        res_type = agent_cfg['properties'].get('agent_type', agent_cfg.get('agent_type', 'LLM'))
+        agent_type = str(res_type).replace('"', '').upper()
+        adapter = self.adapters.get(agent_type)
+        if not adapter:
+            print(f"⚠️  Adapter '{agent_type}' não implementado — fallback mock.")
+            return f"mock_result_{intent['name']}({input_data})"
+        return await adapter(agent_cfg, intent, input_data)
+
+    # ------------------------------------------------------------------------
+    # FERRAMENTAS (Tools)
+    # ------------------------------------------------------------------------
+    def register_tool(self, name: str, func: Any):
+        """Registra uma função Python como ferramenta executável."""
+        self.tools[name] = func
+        print(f"[SynAI] 🛠️  Ferramenta registrada: {name}")
+
+    def register_toolkit(self, toolkit: Dict[str, Any]):
+        """Registra um dicionário inteiro de ferramentas."""
+        for name, func in toolkit.items():
+            self.register_tool(name, func)
+
+    async def _tool_adapter(self, config: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
+        """Adapter para execução de ferramentas locais."""
+        res_func = config.get('properties', {}).get('function', intent['name'])
+        tool_name = str(res_func).replace('"', '')
+        
+        print(f"🛠️  [SynAI] Executando Tool: {tool_name}({input_data[:50]}...)")
+        
+        if tool_name in self.tools:
             try:
-                genai.configure(api_key=g_key)
-                self.client_gemini = True
-                print("[SynAI] ✅ Gemini (Google) key carregada.")
+                func = self.tools[tool_name]
+                if asyncio.iscoroutinefunction(func):
+                    result = await func(input_data)
+                else:
+                    result = func(input_data)
+                return str(result)
             except Exception as e:
-                print(f"[SynAI] ❌ Erro ao inicializar Gemini: {e}")
+                err_msg = f"Erro na execução da ferramenta {tool_name}: {str(e)}"
+                print(f"❌ [SynAI] {err_msg}")
+                return err_msg
+        else:
+            warn_msg = f"Aviso: Ferramenta '{tool_name}' não registrada no runtime."
+            print(f"⚠️  [SynAI] {warn_msg}")
+            return warn_msg
+
+    # ------------------------------------------------------------------------
+    # ADAPTADOR LLM (Via Drivers)
+    # ------------------------------------------------------------------------
+    async def _llm_adapter(self, config: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
+        """Adapter que delega para o Driver LLM adequado."""
+        model_name = config['properties'].get('model', 'unknown')
+        # Provider pode ser especificado na config do agente ou inferido
+        provider_alias = config['properties'].get('provider', self.default_provider)
+        
+        if not provider_alias or provider_alias not in self.llm_providers:
+            # Fallback inteligente: tenta inferir pelo nome do modelo se o provider não for explícito
+            if "claude" in model_name: provider_alias = "anthropic"
+            elif "gpt" in model_name or "grok" in model_name: provider_alias = "openai"
+            elif "gemini" in model_name: provider_alias = "google"
+        
+        driver = self.llm_providers.get(provider_alias)
+        
+        if not driver:
+             if not self.real:
+                 return f"MOCK_LLM_RESPONSE({model_name}): {input_data}"
+             return f"Erro: Nenhum driver LLM encontrado para '{provider_alias}' (modelo: {model_name})"
+
+        prompt = f"Tarefa: {intent['name']}\nInput: {input_data}\nFormato de saída: {intent.get('output', 'texto')}."
+        
+        print(f"🧠 [SynAI] Invocando Driver '{provider_alias}' para modelo '{model_name}'")
+        try:
+            return await driver.generate(prompt=prompt, model=model_name)
+        except Exception as e:
+            print(f"❌ [SynAI] Erro no driver {provider_alias}: {e}")
+            return f"Erro de geração: {e}"
+
+    async def get_embedding(self, text: str) -> Optional[list[float]]:
+        """Gera embedding usando o driver padrão ou o primeiro disponível."""
+        driver = self.llm_providers.get(self.default_provider)
+        if driver:
+            try:
+                return await driver.get_embedding(text)
+            except Exception as e:
+                print(f"⚠️ Falha ao gerar embedding: {e}")
+        return None
 
     # ------------------------------------------------------------------------
     # EXECUÇÃO DE WORKFLOW
@@ -112,19 +237,13 @@ class SynRuntime:
                 else:
                     input_data = dsl_input
 
-                print(f"🎯 Executando intent {agent_id}.{stmt['name']} (input: {input_data})")
+                # Dispatch para Adapter
+                result = await self._dispatch_to_adapter(agent_cfg, stmt, input_data)
 
-                res_type = agent_cfg['properties'].get('agent_type', agent_cfg.get('agent_type', 'LLM'))
-                resolved_type = str(res_type).replace('"', '').upper()
-                if (mock or not self.real) and resolved_type != 'TOOL':
-                    output = f"mock_result_{stmt['name']}({input_data})"
-                else:
-                    output = await self._dispatch_to_adapter(agent_cfg, stmt, input_data)
-
-                # Salvar output (no ID do agente para retrocompatibilidade e no nome da variável se existir)
-                data_flow[f"{agent_id}_output"] = output
+                # Armazenar resultado
+                data_flow[f"{agent_id}_output"] = result
                 if stmt.get('output'):
-                    data_flow[stmt['output']] = output
+                    data_flow[stmt['output']] = result
                     
                 results.append({'intent': stmt['name'], 'agent': agent_id, 'output': output})
 
@@ -177,16 +296,26 @@ class SynRuntime:
     # ------------------------------------------------------------------------
     # FERRAMENTAS (Tools)
     # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # FERRAMENTAS (Tools)
+    # ------------------------------------------------------------------------
     def register_tool(self, name: str, func: Any):
         """Registra uma função Python como ferramenta executável."""
         self.tools[name] = func
         print(f"[SynAI] 🛠️  Ferramenta registrada: {name}")
 
+    def register_toolkit(self, toolkit: Dict[str, Any]):
+        """Registra um dicionário inteiro de ferramentas."""
+        for name, func in toolkit.items():
+            self.register_tool(name, func)
+
     async def _tool_adapter(self, config: Dict[str, Any], intent: Dict[str, Any], input_data: str) -> str:
         """Adapter para execução de ferramentas locais."""
-        res_func = config['properties'].get('function', intent['name'])
+        # Tenta pegar o nome da função da propriedade 'function' ou usa o nome do intent
+        res_func = config.get('properties', {}).get('function', intent['name'])
         tool_name = str(res_func).replace('"', '')
-        print(f"🛠️  Executando Ferramenta: {tool_name}({input_data})")
+        
+        print(f"🛠️  [SynAI] Executando Tool: {tool_name}({input_data[:50]}...)")
         
         if tool_name in self.tools:
             try:
@@ -197,9 +326,13 @@ class SynRuntime:
                     result = func(input_data)
                 return str(result)
             except Exception as e:
-                return f"Erro na execução da ferramenta {tool_name}: {e}"
+                err_msg = f"Erro na execução da ferramenta {tool_name}: {str(e)}"
+                print(f"❌ [SynAI] {err_msg}")
+                return err_msg
         else:
-            return f"Erro: Ferramenta '{tool_name}' não registrada no runtime."
+            warn_msg = f"Aviso: Ferramenta '{tool_name}' não registrada no runtime."
+            print(f"⚠️  [SynAI] {warn_msg}")
+            return warn_msg
 
     # ------------------------------------------------------------------------
     # ADAPTADOR LLM (Anthropic, xAI)
@@ -215,66 +348,28 @@ class SynRuntime:
     # CHAMADA DIRETA DE MODELO (Public API)
     # ------------------------------------------------------------------------
     async def call_model(self, model: str, prompt: str, max_tokens: int = 1024, endpoint: str = "") -> str:
-        """Invoca um LLM diretamente com prompt e modelo."""
-        print(f"🧠 Executando LLM ({model}){' → ' + endpoint if endpoint else ''}")
+        """Invoca um LLM diretamente usando os Drivers registrados."""
+        print(f"🧠 [SynAI] Call Model direto: {model}")
+        
+        # Determinar provider
+        provider_alias = self.default_provider
+        if "claude" in model.lower(): provider_alias = "anthropic"
+        elif "gpt" in model.lower() or "grok" in model.lower(): provider_alias = "openai"
+        elif "gemini" in model.lower(): provider_alias = "google"
+        
+        driver = self.llm_providers.get(provider_alias)
+        
+        if not driver:
+            if not self.real:
+                return f"MOCK_DIRECT_RESPONSE({model}): {prompt[:20]}..."
+            return f"Erro: Driver não encontrado para modelo '{model}' (Provider: {provider_alias})"
 
-        # xAI Grok
-        if 'grok' in model.lower():
-            if self.client_grok:
-                try:
-                    response = self.client_grok.chat.completions.create(
-                        model=model,
-                        messages=[{"role": "user", "content": prompt}],
-                        max_tokens=max_tokens
-                    )
-                    out = response.choices[0].message.content or "(sem resposta)"
-                    print(f"💾 Resposta Grok ({len(out)} chars)")
-                    return out
-                except Exception as e:
-                    print(f"⚠️  Erro xAI ({model}): {e}")
-                    return f"grok_mock (erro: {e})"
-            else:
-                print(f"❌ Erro: Modelo '{model}' solicitado mas XAI_API_KEY não configurada.")
-                return f"error: missing xai key for {model}"
-
-        # Gemini (Google)
-        elif 'gemini' in model.lower():
-            if self.client_gemini:
-                try:
-                    gen_model = genai.GenerativeModel(model)
-                    response = gen_model.generate_content(prompt)
-                    out = response.text or "(sem resposta)"
-                    print(f"💾 Resposta Gemini ({len(out)} chars)")
-                    return out
-                except Exception as e:
-                    print(f"⚠️ Erro Gemini ({model}): {e}")
-                    return f"gemini_mock ({e})"
-            else:
-                print(f"❌ Erro: Modelo '{model}' solicitado mas GOOGLE_API_KEY não configurada.")
-                return f"error: missing google key for {model}"
-
-        # Anthropic Claude
-        elif 'claude' in model.lower() or self.client_anthro:
-            if self.client_anthro:
-                try:
-                    msg = self.client_anthro.messages.create(
-                        model=model if 'claude' in model.lower() else "claude-3-haiku-20240307",
-                        max_tokens=max_tokens,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    out = msg.content[0].text if msg.content else "(vazio)"
-                    print(f"💾 Resposta Claude ({len(out)} chars)")
-                    return out
-                except Exception as e:
-                    print(f"⚠️ Erro Claude ({model}): {e}")
-                    return f"claude_mock ({e})"
-            else:
-                print(f"❌ Erro: Modelo '{model}' solicitado mas ANTHROPIC_API_KEY não configurada.")
-                return f"error: missing anthropic key for {model}"
-
-        else:
-            print(f"⚠️ Nenhuma API configurada para o modelo '{model}' — fallback mock.")
-            return f"mock_result({model})"
+        try:
+            # Chama o driver de forma assíncrona
+            return await driver.generate(prompt=prompt, model=model, max_tokens=max_tokens)
+        except Exception as e:
+            print(f"❌ [SynAI] Erro em call_model ({provider_alias}): {e}")
+            return f"Error executing {model}: {e}"
 
     # ------------------------------------------------------------------------
     # GERAÇÃO DE EMBEDDINGS (RAG Support)
