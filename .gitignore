@@ -1,4 +1,30 @@
+# Environment files
 .env
+.env.*
+!.env.example
 docs/roadmap.md
-.env
-.env
+
+# Python cache and build files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+synai.egg-info/
+
+# IDE and tool files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+.qodo/
+.synx/
+out/
