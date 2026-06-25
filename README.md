@@ -27,14 +27,11 @@ pip install synai
 ```
 
 ```python
-from synai import SynRuntime, DeepSeekDriver, OpenRouterDriver, OllamaDriver
+from synai import SynRuntime
 
-rt = SynRuntime(real=True)
-rt.register_llm_provider("deepseek",    DeepSeekDriver())     # DEEPSEEK_API_KEY
-rt.register_llm_provider("openrouter",  OpenRouterDriver())   # OPENROUTER_API_KEY
-rt.register_llm_provider("ollama",      OllamaDriver())       # local, sem key
+rt = SynRuntime(real=True)  # Auto-carrega e registra todos os 8 drivers padrão
 
-# O runtime tenta DeepSeek → OpenRouter → Ollama automaticamente
+# O runtime tenta DeepSeek → OpenRouter → Gemini → etc. automaticamente
 resposta = await rt.call_model("best-reasoner", "Analise este código...")
 ```
 

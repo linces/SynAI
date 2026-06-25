@@ -61,6 +61,21 @@ class SynRuntime:
         self.llm_providers: Dict[str, LLMProvider] = {}
         self.default_provider: Optional[str] = None
 
+        if real:
+            # Auto-registra todos os 8 drivers padrão do SynAI v1.6
+            from synai.providers import (
+                DeepSeekDriver, OpenRouterDriver, GroqDriver, OllamaDriver,
+                GrokDriver, GoogleDriver, OpenAIDriver, AnthropicDriver
+            )
+            self.register_llm_provider("deepseek", DeepSeekDriver())
+            self.register_llm_provider("openrouter", OpenRouterDriver())
+            self.register_llm_provider("groq", GroqDriver())
+            self.register_llm_provider("ollama", OllamaDriver())
+            self.register_llm_provider("grok", GrokDriver())
+            self.register_llm_provider("google", GoogleDriver())
+            self.register_llm_provider("openai", OpenAIDriver())
+            self.register_llm_provider("anthropic", AnthropicDriver())
+
     # ─────────────────────────────────────────────────────────────────────────
     # REGISTRO DE PROVIDERS
     # ─────────────────────────────────────────────────────────────────────────
@@ -272,7 +287,13 @@ class SynRuntime:
         if is_profile(model):
             return await self._call_profile(model, prompt, max_tokens)
 
-        inferred = _infer_provider(model)
+        # Resolver nome amigável do registry para real slug
+        registry_entry = resolve_model(model)
+        if registry_entry:
+            inferred, real_model = registry_entry
+        else:
+            inferred = _infer_provider(model)
+            real_model = model
 
         # Montar lista de candidatos sem duplicatas, respeitando prioridade
         seen: set = set()
@@ -300,8 +321,8 @@ class SynRuntime:
                 continue
 
             try:
-                print(f"   >> Tentando '{alias}'...")
-                result = await driver.generate(prompt=prompt, model=model, max_tokens=max_tokens)
+                print(f"   >> Tentando '{alias}' (slug: '{real_model}')...")
+                result = await driver.generate(prompt=prompt, model=real_model, max_tokens=max_tokens)
                 print(f"   OK Resposta via '{alias}'.")
                 return result
             except Exception as e:

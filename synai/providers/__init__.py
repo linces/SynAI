@@ -20,6 +20,9 @@ from .openrouter import OpenRouterDriver
 from .groq import GroqDriver
 from .ollama import OllamaDriver
 from .grok import GrokDriver
+from .google import GoogleDriver
+from .openai import OpenAIDriver
+from .anthropic import AnthropicDriver
 
 __all__ = [
     "DeepSeekDriver",
@@ -27,4 +30,7 @@ __all__ = [
     "GroqDriver",
     "OllamaDriver",
     "GrokDriver",
+    "GoogleDriver",
+    "OpenAIDriver",
+    "AnthropicDriver",
 ]

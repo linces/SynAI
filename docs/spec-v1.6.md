@@ -146,16 +146,16 @@ run "Pipeline" with workflow "Main"
 
 ### Drivers
 
-| Alias | Driver | SDK | Env Var | Modelos-chave |
+| Alias | Driver | Protocol/SDK | Env Var | Modelos-chave |
 |---|---|---|---|---|
-| `anthropic` | built-in | `anthropic` | `ANTHROPIC_API_KEY` | claude-sonnet-4-5 |
-| `openai` | built-in | `openai` | `OPENAI_API_KEY` | gpt-4o |
-| `deepseek` | `DeepSeekDriver` | `openai` (base_url) | `DEEPSEEK_API_KEY` | deepseek-chat, deepseek-reasoner |
+| `anthropic` | `AnthropicDriver` | `httpx` | `ANTHROPIC_API_KEY` | claude-sonnet, claude-haiku |
+| `openai` | `OpenAIDriver` | `httpx` | `OPENAI_API_KEY` | gpt-4o, gpt-4o-mini |
+| `deepseek` | `DeepSeekDriver` | `openai` (base_url) | `DEEPSEEK_API_KEY` | deepseek-chat, deepseek-coder, deepseek-reasoner (R1) |
 | `openrouter` | `OpenRouterDriver` | `httpx` | `OPENROUTER_API_KEY` | qwen-72b, codestral, llama-70b |
 | `groq` | `GroqDriver` | `groq` | `GROQ_API_KEY` | llama-3.3-70b-versatile |
 | `ollama` | `OllamaDriver` | `httpx` | `OLLAMA_BASE_URL` | qualquer modelo local |
 | `grok` | `GrokDriver` | `openai` (base_url) | `XAI_API_KEY` | grok-3 |
-| `google` | built-in | `google-generativeai` | `GOOGLE_API_KEY` | gemini-2.5-flash |
+| `google` | `GoogleDriver` | `httpx` | `GOOGLE_API_KEY` | gemini-pro, gemini-flash |
 
 ### LLMProvider Protocol
 

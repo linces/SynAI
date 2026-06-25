@@ -95,6 +95,9 @@ MODEL_PROFILES: dict[str, list[str]] = {
         "codestral",            # Mistral especializado em código
         "gpt-4o",               # Forte, mas mais caro
         "claude-sonnet",        # Bom em código, ótimo em explicações
+        "gemini-pro",           # Gemini 2.5 Pro — excelente raciocínio e código
+        "gemini-flash",         # Gemini 2.0 Flash — fallback rápido
+        "grok-3",               # Grok 3 — ótimo codificador
         "llama-70b",            # Rápido, bom em tarefas simples de código
     ],
 
@@ -105,6 +108,7 @@ MODEL_PROFILES: dict[str, list[str]] = {
         "claude-sonnet",        # Melhor raciocínio da Anthropic
         "gpt-4o",               # Sólido e confiável
         "gemini-pro",           # Contexto longo, bom em análise
+        "gemini-flash",         # Gemini 2.0 Flash — fallback rápido
         "grok-3",               # Alternativa xAI
     ],
 
