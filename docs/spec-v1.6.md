@@ -150,11 +150,11 @@ run "Pipeline" with workflow "Main"
 |---|---|---|---|---|
 | `anthropic` | `AnthropicDriver` | `httpx` | `ANTHROPIC_API_KEY` | claude-sonnet, claude-haiku |
 | `openai` | `OpenAIDriver` | `httpx` | `OPENAI_API_KEY` | gpt-4o, gpt-4o-mini |
-| `deepseek` | `DeepSeekDriver` | `openai` (base_url) | `DEEPSEEK_API_KEY` | deepseek-chat, deepseek-coder, deepseek-reasoner (R1) |
+| `deepseek` | `DeepSeekDriver` | `httpx` | `DEEPSEEK_API_KEY` | deepseek-chat, deepseek-coder, deepseek-reasoner (R1) |
 | `openrouter` | `OpenRouterDriver` | `httpx` | `OPENROUTER_API_KEY` | qwen-72b, codestral, llama-70b |
-| `groq` | `GroqDriver` | `groq` | `GROQ_API_KEY` | llama-3.3-70b-versatile |
+| `groq` | `GroqDriver` | `httpx` | `GROQ_API_KEY` | llama-3.3-70b-versatile |
 | `ollama` | `OllamaDriver` | `httpx` | `OLLAMA_BASE_URL` | qualquer modelo local |
-| `grok` | `GrokDriver` | `openai` (base_url) | `XAI_API_KEY` | grok-3 |
+| `grok` | `GrokDriver` | `httpx` | `XAI_API_KEY` | grok-3 |
 | `google` | `GoogleDriver` | `httpx` | `GOOGLE_API_KEY` | gemini-pro, gemini-flash |
 
 ### LLMProvider Protocol
@@ -178,6 +178,9 @@ rt = SynRuntime(real=True)
 rt.register_llm_provider("deepseek", DeepSeekDriver(), set_default=True)
 rt.register_tool("web_search", my_search_func)
 rt.register_toolkit({"f1": func1, "f2": func2})
+
+# Telemetria
+rt.add_event_listener(my_callback)
 
 # Chamada de modelo (com fallback automático)
 result = await rt.call_model(
@@ -211,7 +214,20 @@ GOOGLE_API_KEY=         # Gemini
 
 ---
 
-## 8. Limitações v1.6
+## 8. Telemetria de Roteamento (v1.6)
+
+O `SynRuntime` fornece um gancho de telemetria assíncrona por meio de `add_event_listener(callback)`. O callback recebe `(event_name: str, payload: dict)` com os seguintes eventos:
+
+1. **`routing_start`**: Iniciando chamada a um modelo ou perfil.
+2. **`routing_skip`**: Pulando um provider candidato (ex: sem chave de API).
+3. **`routing_try`**: Tentando requisição HTTPX para um driver.
+4. **`routing_fail`**: Driver falhou com exceção ou erro HTTP.
+5. **`routing_success`**: Chamada bem-sucedida (contém snippet da resposta).
+6. **`routing_failed_all`**: Todos os candidatos falharam.
+
+---
+
+## 9. Limitações v1.6
 
 - `if`/`repeat` (controle de fluxo) planejados para v2.0
 - `transform` e `filter` nos connects são declarativos, mas ainda sem executor real

@@ -219,6 +219,35 @@ rt.register_tool("generate_report", generate_report)
 
 ---
 
+## Telemetria de Roteamento (Novidade v1.6)
+
+O runtime do SynAI expõe um sistema de hooks de telemetria assíncronos para permitir o monitoramento em tempo real do fluxo de decisões, skips e fallbacks.
+
+### Registrar um Listener de Telemetria
+
+```python
+rt = SynRuntime(real=True)
+
+def my_telemetry_listener(event_name: str, payload: dict):
+    print(f"[{event_name}] {payload}")
+
+# Adiciona o listener
+rt.add_event_listener(my_telemetry_listener)
+```
+
+### Eventos Despachados
+
+| Evento | Payload | Descrição |
+|---|---|---|
+| `routing_start` | `{"model": str, "type": str, "prompt": str}` | Disparado ao iniciar a chamada de um modelo ou perfil. |
+| `routing_skip` | `{"model": str, "provider": str, "reason": str}` | Disparado quando um provider é ignorado (ex: sem chave de API). |
+| `routing_try` | `{"model": str, "provider": str, "slug": str}` | Disparado antes de realizar a requisição HTTPX para o driver. |
+| `routing_fail` | `{"model": str, "provider": str, "error": str}` | Disparado quando o driver falha com erro ou HTTP status não-200. |
+| `routing_success` | `{"model": str, "provider": str, "response": str}` | Disparado quando a requisição é concluída com sucesso. |
+| `routing_failed_all` | `{"model": str}` | Disparado quando todos os candidatos falham. |
+
+---
+
 ## Estrutura do Projeto
 
 ```
