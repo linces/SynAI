@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Callable
 import os
 import json
 from dotenv import load_dotenv
@@ -60,6 +60,7 @@ class SynRuntime:
         self.tools: Dict[str, Any] = {}
         self.llm_providers: Dict[str, LLMProvider] = {}
         self.default_provider: Optional[str] = None
+        self.event_listeners: List[Callable[[str, Dict[str, Any]], None]] = []
 
         if real:
             # Auto-registra todos os 8 drivers padrão do SynAI v1.6
@@ -75,6 +76,19 @@ class SynRuntime:
             self.register_llm_provider("google", GoogleDriver())
             self.register_llm_provider("openai", OpenAIDriver())
             self.register_llm_provider("anthropic", AnthropicDriver())
+
+    def add_event_listener(self, callback: Callable[[str, Dict[str, Any]], None]):
+        """Registra um callback para telemetria de roteamento."""
+        self.event_listeners.append(callback)
+
+    def _dispatch_event(self, event_name: str, payload: Dict[str, Any]):
+        """Dispara um evento de telemetria para todos os listeners."""
+        for listener in self.event_listeners:
+            try:
+                listener(event_name, payload)
+            except Exception as e:
+                print(f"[SynAI][Telemetry] Erro ao disparar evento '{event_name}': {e}")
+
 
     # ─────────────────────────────────────────────────────────────────────────
     # REGISTRO DE PROVIDERS
@@ -287,6 +301,12 @@ class SynRuntime:
         if is_profile(model):
             return await self._call_profile(model, prompt, max_tokens)
 
+        self._dispatch_event("routing_start", {
+            "model": model,
+            "type": "single",
+            "prompt": prompt[:150] + "..." if len(prompt) > 150 else prompt
+        })
+
         # Resolver nome amigável do registry para real slug
         registry_entry = resolve_model(model)
         if registry_entry:
@@ -312,23 +332,41 @@ class SynRuntime:
 
         for alias in candidates:
             driver = self.llm_providers.get(alias)
-            if not driver:
-                continue
-
-            # Checar disponibilidade (API key configurada?)
-            if hasattr(driver, 'is_available') and not driver.is_available():
-                print(f"   [SKIP] '{alias}' sem API key - pulando.")
+            if not driver or (hasattr(driver, 'is_available') and not driver.is_available()):
+                self._dispatch_event("routing_skip", {
+                    "model": model,
+                    "provider": alias,
+                    "reason": "Driver not registered" if not driver else "Missing API key"
+                })
+                if driver:
+                     print(f"   [SKIP] '{alias}' sem API key - pulando.")
                 continue
 
             try:
+                self._dispatch_event("routing_try", {
+                    "model": model,
+                    "provider": alias,
+                    "slug": real_model
+                })
                 print(f"   >> Tentando '{alias}' (slug: '{real_model}')...")
                 result = await driver.generate(prompt=prompt, model=real_model, max_tokens=max_tokens)
+                self._dispatch_event("routing_success", {
+                    "model": model,
+                    "provider": alias,
+                    "response": result[:150] + "..." if len(result) > 150 else result
+                })
                 print(f"   OK Resposta via '{alias}'.")
                 return result
             except Exception as e:
+                self._dispatch_event("routing_fail", {
+                    "model": model,
+                    "provider": alias,
+                    "error": f"{type(e).__name__}: {e}"
+                })
                 print(f"   FAIL '{alias}' falhou: {type(e).__name__}: {e}. Proximo...")
 
         # Todos os providers falharam
+        self._dispatch_event("routing_failed_all", {"model": model})
         if not self.real:
             return f"MOCK_RESPONSE({model}): {prompt[:40]}..."
         return f"Todos os providers falharam para o modelo '{model}'."
@@ -355,6 +393,12 @@ class SynRuntime:
         model_list = get_profile_models(profile)
         print(f"[SynAI][PROFILE] '{profile}' -> {len(model_list)} modelos candidatos")
 
+        self._dispatch_event("routing_start", {
+            "model": profile,
+            "type": "profile",
+            "prompt": prompt[:150] + "..." if len(prompt) > 150 else prompt
+        })
+
         for friendly_name in model_list:
             # Resolver: nome amigável ou slug direto
             registry_entry = resolve_model(friendly_name)
@@ -366,27 +410,64 @@ class SynRuntime:
                 provider_alias = _infer_provider(friendly_name)
 
             if not provider_alias:
+                self._dispatch_event("routing_skip", {
+                    "model": profile,
+                    "friendly_name": friendly_name,
+                    "provider": "unknown",
+                    "reason": "No provider inferred"
+                })
                 print(f"   [PROFILE] '{friendly_name}' sem provider inferido — pulando.")
                 continue
 
             driver = self.llm_providers.get(provider_alias)
             if not driver:
+                self._dispatch_event("routing_skip", {
+                    "model": profile,
+                    "friendly_name": friendly_name,
+                    "provider": provider_alias,
+                    "reason": "Driver not registered"
+                })
                 print(f"   [PROFILE] Provider '{provider_alias}' nao registrado — pulando '{friendly_name}'.")
                 continue
 
             if hasattr(driver, 'is_available') and not driver.is_available():
+                self._dispatch_event("routing_skip", {
+                    "model": profile,
+                    "friendly_name": friendly_name,
+                    "provider": provider_alias,
+                    "reason": "Missing API key"
+                })
                 print(f"   [PROFILE] '{provider_alias}' sem API key — pulando '{friendly_name}'.")
                 continue
 
             try:
+                self._dispatch_event("routing_try", {
+                    "model": profile,
+                    "friendly_name": friendly_name,
+                    "provider": provider_alias,
+                    "slug": api_slug
+                })
                 print(f"   [PROFILE] Tentando '{friendly_name}' via '{provider_alias}' (slug: {api_slug})...")
                 result = await driver.generate(prompt=prompt, model=api_slug, max_tokens=max_tokens)
+                self._dispatch_event("routing_success", {
+                    "model": profile,
+                    "friendly_name": friendly_name,
+                    "provider": provider_alias,
+                    "response": result[:150] + "..." if len(result) > 150 else result
+                })
                 print(f"   [PROFILE] OK via '{friendly_name}' ({provider_alias}).")
                 return result
             except Exception as e:
+                self._dispatch_event("routing_fail", {
+                    "model": profile,
+                    "friendly_name": friendly_name,
+                    "provider": provider_alias,
+                    "error": f"{type(e).__name__}: {e}"
+                })
                 print(f"   [PROFILE] '{friendly_name}' falhou: {type(e).__name__}: {e}. Proximo...")
 
         # Todos os modelos do perfil falharam
+        self._dispatch_event("routing_failed_all", {"model": profile})
         if not self.real:
             return f"MOCK_PROFILE({profile}): {prompt[:40]}..."
         return f"Todos os modelos do perfil '{profile}' falharam."
