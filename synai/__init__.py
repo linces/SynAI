@@ -1,4 +1,4 @@
-__version__ = "1.5"
+__version__ = "1.6"
 
 import os
 from dotenv import load_dotenv
@@ -9,6 +9,7 @@ from .weaver import weave_linker
 from .cli import cli
 from .runtime import SynRuntime, FALLBACK_CHAIN
 from .interfaces import LLMProvider
+from .profiles import MODEL_PROFILES, MODEL_REGISTRY, is_profile, resolve_model
 
 # Providers — imports diretos para conveniência
 from .providers import (
@@ -31,6 +32,11 @@ __all__ = [
     "SynRuntime",
     "FALLBACK_CHAIN",
     "LLMProvider",
+    # Model Routing
+    "MODEL_PROFILES",
+    "MODEL_REGISTRY",
+    "is_profile",
+    "resolve_model",
     # Providers
     "DeepSeekDriver",
     "OpenRouterDriver",

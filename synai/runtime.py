@@ -4,6 +4,7 @@ import os
 import json
 from dotenv import load_dotenv
 from .interfaces import LLMProvider
+from .profiles import is_profile, resolve_model, get_profile_models, MODEL_PROFILES
 
 load_dotenv()
 
@@ -265,7 +266,11 @@ class SynRuntime:
         Returns:
             Resposta gerada pelo primeiro provider bem-sucedido.
         """
-        print(f"🧠 [SynAI] call_model: '{model}'")
+        print(f"[SynAI] call_model: '{model}'")
+
+        # ── Detecção de perfil: 'best-coder', 'auto', etc. ──────────────────
+        if is_profile(model):
+            return await self._call_profile(model, prompt, max_tokens)
 
         inferred = _infer_provider(model)
 
@@ -291,21 +296,79 @@ class SynRuntime:
 
             # Checar disponibilidade (API key configurada?)
             if hasattr(driver, 'is_available') and not driver.is_available():
-                print(f"   ⏭  '{alias}' sem API key — pulando.")
+                print(f"   [SKIP] '{alias}' sem API key - pulando.")
                 continue
 
             try:
-                print(f"   ↳ Tentando '{alias}'...")
+                print(f"   >> Tentando '{alias}'...")
                 result = await driver.generate(prompt=prompt, model=model, max_tokens=max_tokens)
-                print(f"   ✓ Resposta via '{alias}'.")
+                print(f"   OK Resposta via '{alias}'.")
                 return result
             except Exception as e:
-                print(f"   ✗ '{alias}' falhou: {type(e).__name__}: {e}. Próximo...")
+                print(f"   FAIL '{alias}' falhou: {type(e).__name__}: {e}. Proximo...")
 
         # Todos os providers falharam
         if not self.real:
             return f"MOCK_RESPONSE({model}): {prompt[:40]}..."
-        return f"❌ Todos os providers falharam para o modelo '{model}'."
+        return f"Todos os providers falharam para o modelo '{model}'."
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CALL PROFILE — Roteamento por Perfil Semântico
+    # ─────────────────────────────────────────────────────────────────────────
+    async def _call_profile(
+        self,
+        profile: str,
+        prompt: str,
+        max_tokens: int = 1024,
+    ) -> str:
+        """
+        Itera pelos modelos de um perfil (ex: 'best-coder') em ordem de prioridade,
+        tentando cada um até obter resposta bem-sucedida.
+
+        Para cada modelo da lista:
+            1. Resolve o nome amigável → (provider_alias, api_slug) via MODEL_REGISTRY
+            2. Se não estiver no registry, trata como slug direto e infere o provider
+            3. Verifica se o driver está disponível (API key configurada)
+            4. Tenta gerar; em falha, avança para o próximo
+        """
+        model_list = get_profile_models(profile)
+        print(f"[SynAI][PROFILE] '{profile}' -> {len(model_list)} modelos candidatos")
+
+        for friendly_name in model_list:
+            # Resolver: nome amigável ou slug direto
+            registry_entry = resolve_model(friendly_name)
+            if registry_entry:
+                provider_alias, api_slug = registry_entry
+            else:
+                # Slug direto (ex: "gpt-4o" passado sem entry no registry)
+                api_slug = friendly_name
+                provider_alias = _infer_provider(friendly_name)
+
+            if not provider_alias:
+                print(f"   [PROFILE] '{friendly_name}' sem provider inferido — pulando.")
+                continue
+
+            driver = self.llm_providers.get(provider_alias)
+            if not driver:
+                print(f"   [PROFILE] Provider '{provider_alias}' nao registrado — pulando '{friendly_name}'.")
+                continue
+
+            if hasattr(driver, 'is_available') and not driver.is_available():
+                print(f"   [PROFILE] '{provider_alias}' sem API key — pulando '{friendly_name}'.")
+                continue
+
+            try:
+                print(f"   [PROFILE] Tentando '{friendly_name}' via '{provider_alias}' (slug: {api_slug})...")
+                result = await driver.generate(prompt=prompt, model=api_slug, max_tokens=max_tokens)
+                print(f"   [PROFILE] OK via '{friendly_name}' ({provider_alias}).")
+                return result
+            except Exception as e:
+                print(f"   [PROFILE] '{friendly_name}' falhou: {type(e).__name__}: {e}. Proximo...")
+
+        # Todos os modelos do perfil falharam
+        if not self.real:
+            return f"MOCK_PROFILE({profile}): {prompt[:40]}..."
+        return f"Todos os modelos do perfil '{profile}' falharam."
 
     # ─────────────────────────────────────────────────────────────────────────
     # EMBEDDINGS — RAG Support
