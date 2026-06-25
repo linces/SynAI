@@ -1,33 +1,82 @@
-orchestrator "demo_advanced" {
+// SynAI v1.6 — Demo: Pipeline Multi-Provider com Model Profiles
+//
+// Este workflow demonstra:
+//   1. Uso de model profiles semânticos ("best-reasoner", "best-coder")
+//   2. Uso de modelo específico via nome amigável ("deepseek-reasoner")
+//   3. Uso de "auto" — SynAI decide o melhor provider disponível
+//   4. Agente TOOL (ferramenta local Python)
+//   5. Conexão assíncrona entre agentes com timeout
+//
+// Para executar:
+//   synai build examples/demo.synai -o out/demo.synx
+//   synai run out/demo.synx --real
+
+orchestrator "AICodeReview" {
+
   agents {
-    analyzer: LLM {
-      model: "claude-3-opus-20240229"
-      capabilities: ["reason", "analyze"]
-      endpoint: "https://api.anthropic.com/v1"
+
+    // Busca o código a revisar usando ferramenta local
+    fetcher: TOOL {
+      function: "read_file"
     }
+
+    // Analista usa o melhor modelo de raciocínio disponível
+    analyst: LLM {
+      model: "best-reasoner"
+      capabilities: ["reason", "analyze", "critique"]
+    }
+
+    // Gerador de código usa o melhor modelo de código disponível
     coder: LLM {
-      model: "grok-beta"
-      capabilities: ["code", "generate"]
-      endpoint: "https://api.x.ai/v1"
+      model: "best-coder"
+      capabilities: ["code", "generate", "refactor"]
     }
+
+    // Sumarizador usa qualquer modelo rápido disponível
     summarizer: LLM {
-      model: "claude-3-sonnet-20240229"
-      capabilities: ["summarize", "reason"]
-      endpoint: "https://api.anthropic.com/v1"
+      model: "best-fast"
+      capabilities: ["summarize", "format"]
     }
-    visualizer: Vision {
-      model: "gpt-4-vision-preview"
-      capabilities: ["image_analyze", "describe"]
-      endpoint: "https://api.openai.com/v1"
+
+  }
+
+  workflow "ReviewAndImprove" {
+
+    // Etapa 1: Ler o arquivo de código
+    intent "Ler Código" {
+      agent: fetcher
+      input: "src/main.py"
     }
+
+    // Passar código para análise
+    connect fetcher.output -> analyst.input { async: false }
+
+    // Etapa 2: Análise crítica do código
+    intent "Analisar Código" {
+      agent: analyst
+      input: result("Ler Código")
+    }
+
+    // Passar análise para o gerador (com retry em caso de falha)
+    connect analyst.output -> coder.input { async: true timeout: 60s retry: 2 }
+
+    // Etapa 3: Gerar código melhorado
+    intent "Refatorar" {
+      agent: coder
+      input: result("Analisar Código")
+    }
+
+    // Passar resultado para sumarização
+    connect coder.output -> summarizer.input { async: false timeout: 30s }
+
+    // Etapa 4: Gerar relatório final
+    intent "Relatório Final" {
+      agent: summarizer
+      input: result("Refatorar")
+    }
+
   }
-  workflow "data_pipeline" {
-    start: analyzer.intent("analyze_data", input: "data.txt", output: "analysis.json")
-    connect analyzer.output -> visualizer.input { async: true timeout: 10s transform: "json_to_image" }
-    connect visualizer.output -> coder.input { retry: 3 filter: "success" }
-    step: coder.intent("generate_code", input: "analysis.json", output: "script.py")
-    connect coder.output -> summarizer.input { async: false timeout: 5s }
-    end: summarizer.intent("generate_summary", input: "script.py", output: "final_report.md")
-  }
+
 }
-run "demo_advanced" with workflow "data_pipeline"
+
+run "AICodeReview" with workflow "ReviewAndImprove"

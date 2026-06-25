@@ -1,0 +1,65 @@
+// SynAI v1.6 — Exemplo: Acesso Multi-Provider Soberano
+//
+// Demonstra o sistema de fallback automático:
+//   - Apenas providers com keys configuradas serão tentados
+//   - O runtime percorre a FALLBACK_CHAIN automaticamente
+//   - O perfil "best-free" prioriza modelos gratuitos
+//
+// Configure no .env apenas os providers que você tem:
+//   DEEPSEEK_API_KEY=...
+//   OPENROUTER_API_KEY=...
+//   GROQ_API_KEY=...
+//   OLLAMA_BASE_URL=http://localhost:11434  (local, sem key)
+
+orchestrator "SovereignPipeline" {
+
+  agents {
+
+    // Usa o perfil de melhor custo-benefício
+    // Ordem: llama-70b (Groq) → gemini-flash → qwen-72b → deepseek-chat → ollama-local
+    researcher: LLM {
+      model: "best-free"
+      capabilities: ["research", "summarize"]
+    }
+
+    // Modelo específico via nome amigável do registry
+    // "qwen-coder" → openrouter → "qwen/qwen2.5-coder-32b-instruct"
+    coder: LLM {
+      model: "qwen-coder"
+      capabilities: ["code"]
+    }
+
+    // Fallback total: SynAI tenta tudo que está registrado
+    writer: LLM {
+      model: "auto"
+      capabilities: ["write", "format"]
+    }
+
+  }
+
+  workflow "FreeResearch" {
+
+    intent "Pesquisar" {
+      agent: researcher
+      input: "Quais são os melhores frameworks de IA em 2026?"
+    }
+
+    connect researcher.output -> coder.input { async: true }
+
+    intent "Gerar Exemplos" {
+      agent: coder
+      input: result("Pesquisar")
+    }
+
+    connect coder.output -> writer.input { async: false timeout: 45s }
+
+    intent "Formatar Relatório" {
+      agent: writer
+      input: result("Gerar Exemplos")
+    }
+
+  }
+
+}
+
+run "SovereignPipeline" with workflow "FreeResearch"
