@@ -85,7 +85,11 @@ def run(synx_path, real, policy, api_key, xai_key, google_key):
     dir_name = os.path.dirname(synx_path)
     base_name = os.path.basename(synx_path)
     if '_linked' not in base_name:
-        linked_base = base_name.replace('.synx', '_linked.synx')
+        if base_name.endswith('.synx'):
+            linked_base = base_name[:-5] + '_linked.synx'
+        else:
+            root, ext = os.path.splitext(base_name)
+            linked_base = f"{root}_linked{ext}"
         linked_path = os.path.join(dir_name, linked_base)
         if os.path.exists(linked_path):
             synx_path = linked_path

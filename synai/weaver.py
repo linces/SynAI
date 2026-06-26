@@ -78,9 +78,16 @@ def weave_linker(ast: Dict[str, Any], source_path: str) -> str:
         "metadata": metadata
     }
 
-    # Caminho de saída
-    output_path = source_path.replace('.synx', '_linked.synx')
-    os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+    # Caminho de saída: mantém o diretório original e altera o nome do arquivo com robustez
+    dir_name = os.path.dirname(source_path)
+    base_name = os.path.basename(source_path)
+    if base_name.endswith('.synx'):
+        linked_base = base_name[:-5] + '_linked.synx'
+    else:
+        root, ext = os.path.splitext(base_name)
+        linked_base = f"{root}_linked{ext}"
+    output_path = os.path.join(dir_name, linked_base)
+    os.makedirs(dir_name or '.', exist_ok=True)
 
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(linked_data, f, indent=2, ensure_ascii=False)
