@@ -2,6 +2,10 @@
 SynAI Driver — OpenRouter
 Gateway para +300 modelos: Qwen, Mistral, Llama, Codestral, WizardCoder, etc.
 Um único API key dá acesso a praticamente todo o ecossistema open-source.
+
+FreeTier: modelos com sufixo ':free' não consomem crédito (rate-limitados).
+    Ative prefer_free=True para usar automaticamente o free tier quando disponível.
+
 Env: OPENROUTER_API_KEY
 """
 import os
@@ -15,6 +19,7 @@ class OpenRouterDriver:
     provider_name = "openrouter"
     BASE_URL = "https://openrouter.ai/api/v1"
     DEFAULT_MODEL = "qwen/qwen2.5-72b-instruct"
+    DEFAULT_FREE_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 
     # Modelos recomendados (slugs válidos no OpenRouter)
     RECOMMENDED = {
@@ -26,15 +31,43 @@ class OpenRouterDriver:
         "mistral":       "mistralai/mistral-7b-instruct",
     }
 
+    # Catálogo de modelos gratuitos do OpenRouter (:free = sem custo)
+    FREE_MODELS: list = [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "qwen/qwen2.5-72b-instruct:free",
+        "qwen/qwen2.5-coder-32b-instruct:free",
+        "qwen/qwq-32b:free",
+        "mistralai/mistral-7b-instruct:free",
+        "google/gemma-3-27b-it:free",
+        "google/gemma-3-12b-it:free",
+        "deepseek/deepseek-r1:free",
+        "deepseek/deepseek-chat-v3-0324:free",
+        "microsoft/phi-4:free",
+        "nvidia/llama-3.1-nemotron-70b-instruct:free",
+        "nousresearch/deephermes-3-llama-3-8b:free",
+    ]
+
+    # Melhor modelo free por categoria
+    FREE_BEST: dict = {
+        "geral":     "meta-llama/llama-3.3-70b-instruct:free",
+        "code":      "qwen/qwen2.5-coder-32b-instruct:free",
+        "reasoning": "deepseek/deepseek-r1:free",
+        "fast":      "mistralai/mistral-7b-instruct:free",
+        "balanced":  "qwen/qwen2.5-72b-instruct:free",
+    }
+
     def __init__(
         self,
         api_key: Optional[str] = None,
         site_url: str = "https://synai.dev",
         site_name: str = "SynAI",
+        prefer_free: bool = False,
     ):
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY", "")
         self.site_url = site_url    # Exigido pela política da OpenRouter
         self.site_name = site_name  # Exibido no dashboard da OpenRouter
+        self.prefer_free = prefer_free  # Se True, prefere modelos :free quando disponível
 
     def is_available(self) -> bool:
         """Retorna True se a API key está configurada."""
@@ -57,8 +90,16 @@ class OpenRouterDriver:
         **kwargs,
     ) -> str:
         """Gera resposta via OpenRouter (qualquer modelo disponível no gateway)."""
+        # Se prefer_free e o modelo não tem :free, tenta versao free primeiro
+        resolved_model = model
+        if self.prefer_free and ":free" not in model:
+            free_candidate = model + ":free"
+            if free_candidate in self.FREE_MODELS:
+                resolved_model = free_candidate
+                print(f"   [OpenRouter] prefer_free: usando '{resolved_model}' em vez de '{model}'")
+
         payload = {
-            "model": model,
+            "model": resolved_model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
             "temperature": temperature,
@@ -81,3 +122,16 @@ class OpenRouterDriver:
     async def get_embedding(self, text: str) -> Optional[list[float]]:
         """OpenRouter não expõe API de embeddings diretamente."""
         return None
+
+    def list_free_models(self) -> list:
+        """Retorna todos os modelos gratuitos catalogados."""
+        return list(self.FREE_MODELS)
+
+    def get_best_free_model(self, category: str = "geral") -> str:
+        """Retorna o melhor modelo gratuito para uma categoria."""
+        return self.FREE_BEST.get(category, self.DEFAULT_FREE_MODEL)
+
+    def enable_free_mode(self) -> None:
+        """Ativa o modo prefer_free para esta instância."""
+        self.prefer_free = True
+        print("[OpenRouter] Modo prefer_free ativado — priorizando modelos :free")

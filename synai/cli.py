@@ -76,10 +76,11 @@ def link(synx_path, diagram):
 @cli.command()
 @click.argument('synx_path')
 @click.option('--real', is_flag=True, help='Use real API')
+@click.option('--policy', default=None, help='Routing policy: free, balanced, premium, local, openrouter_first')
 @click.option('--api-key', help='Anthropic API key for real mode (overrides .env)')
 @click.option('--xai-key', help='xAI API key for real mode (overrides .env)')
 @click.option('--google-key', help='Google API key for real mode (overrides .env)')
-def run(synx_path, real, api_key, xai_key, google_key):
+def run(synx_path, real, policy, api_key, xai_key, google_key):
     # Auto-detect linked file with path fix (no double)
     dir_name = os.path.dirname(synx_path)
     base_name = os.path.basename(synx_path)
@@ -121,8 +122,15 @@ def run(synx_path, real, api_key, xai_key, google_key):
         return
 
     click.echo(f"Executando workflow '{wf_name}' de '{orch_name}' (real: {real})...")
-    data_flow = {}  # Simulate data: key = output port, value = data
-    runtime = SynRuntime(api_key=api_key, xai_key=xai_key, google_key=google_key) if real else None
+    data_flow = {}
+
+    # Determinar policy: CLI flag > runtime_config no AST > default 'balanced'
+    resolved_policy = policy
+    if not resolved_policy:
+        resolved_policy = ast.get('runtime_config', {}).get('policy', 'balanced')
+    click.echo(f"[SynAI] Policy: {resolved_policy}")
+
+    runtime = SynRuntime(real=real, policy=resolved_policy)
 
     for stmt in wf['statements']:
         if stmt['type'] == 'Intent':

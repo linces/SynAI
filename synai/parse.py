@@ -5,7 +5,7 @@ import uuid
 grammar = r'''
 start: program
 program: declaration+
-declaration: orchestrator_decl | run_decl
+declaration: orchestrator_decl | run_decl | runtime_decl
 
 orchestrator_decl: "orchestrator" STRING "{" block+ "}"
 block: agents_block | workflow_block
@@ -40,6 +40,10 @@ filter_opt: "filter:" STRING
 array: "[" strings "]"
 strings: STRING ("," STRING)*
 run_decl: "run" STRING "with" "workflow" STRING
+runtime_decl: "runtime" "{" runtime_props "}"
+runtime_props: runtime_prop*
+runtime_prop: ID ":" POLICY_VALUE
+POLICY_VALUE: /[a-zA-Z_][a-zA-Z0-9_]*/
 
 AGENT_TYPE: /[A-Z][a-zA-Z0-9]+/
 ID: /[a-zA-Z_][a-zA-Z0-9_]*/
@@ -197,6 +201,26 @@ class SynTransformer(Transformer):
         n = self.transform_children(c)
         return {'type': 'Run', 'id': str(uuid.uuid4()), 'orchestrator': n[0], 'workflow': n[1]}
 
+    def runtime_decl(self, c):
+        props = {}
+        for child in self.transform_children(c):
+            if isinstance(child, dict):
+                props.update(child)
+        return {'type': 'Runtime', 'id': str(uuid.uuid4()), 'config': props}
+
+    def runtime_props(self, c):
+        result = {}
+        for child in self.transform_children(c):
+            if isinstance(child, dict):
+                result.update(child)
+        return result
+
+    def runtime_prop(self, children):
+        n = [ch for ch in children if not isinstance(ch, Token) or ch.type not in ('WS',)]
+        key = str(n[0]) if len(n) > 0 else "unknown"
+        val = str(n[1]) if len(n) > 1 else None
+        return {key: val}
+
     def array(self, children):
         if not children:
             return []
@@ -222,6 +246,7 @@ class SynTransformer(Transformer):
     def INT(self, s): return int(s.value)
     def AGENT_TYPE(self, s): return s.value
     def BOOL(self, s): return s.value == 'true'  # Convert to bool
+    def POLICY_VALUE(self, s): return s.value     # policy value: free, balanced, premium...
 
 # --- SANITIZAÇÃO FINAL
 def sanitize_tree(obj):
@@ -244,8 +269,18 @@ def parse_synai(code: str) -> dict:
         tree = parser.parse(code)
         transformer = SynTransformer()
         ast = transformer.transform(tree)
-        return sanitize_tree(ast)
+        result = sanitize_tree(ast)
+
+        # Extrair configuração de runtime se presente
+        runtime_config = {}
+        for decl in result.get('declarations', []):
+            if isinstance(decl, dict) and decl.get('type') == 'Runtime':
+                runtime_config = decl.get('config', {})
+                break
+        result['runtime_config'] = runtime_config
+
+        return result
     except UnexpectedInput as e:
         raise ValueError(f"Erro de parsing na linha {e.line}, coluna {e.column}: {e.get_context(code)}")
     except Exception as e:
-        raise ValueError(f"Parse error: {e}")
+        raise ValueError(f"Parse error: {e}")

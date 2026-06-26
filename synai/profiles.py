@@ -3,6 +3,7 @@ SynAI — Model Registry & Profiles
 
 MODEL_REGISTRY: mapeia nomes amigáveis para (provider_alias, api_slug).
     Permite usar "deepseek-coder" no DSL em vez de "deepseek-coder-v2-instruct".
+    Modelos com sufixo -free usam o tier gratuito do OpenRouter (:free).
 
 MODEL_PROFILES: agrupa modelos por capacidade/objetivo.
     Usado quando o agente DSL define model: "best-coder" ou model: "auto".
@@ -15,6 +16,10 @@ Uso no DSL SynAI:
 
     agent coder {
         model: "auto"
+    }
+
+    agent coder {
+        model: "best-free"           # usa apenas modelos gratuitos
     }
 
     agent analyst {
@@ -75,11 +80,27 @@ MODEL_REGISTRY: dict[str, Tuple[str, str]] = {
     "grok-mini":           ("grok",       "grok-3-mini"),
     "grok-2":              ("grok",       "grok-2"),
 
+    # ── OpenRouter: Free Tier (:free = sem custo, rate-limitado) ───────────────
+    "llama-70b-free":      ("openrouter", "meta-llama/llama-3.3-70b-instruct:free"),
+    "llama-8b-free":       ("openrouter", "meta-llama/llama-3.1-8b-instruct:free"),
+    "qwen-72b-free":       ("openrouter", "qwen/qwen2.5-72b-instruct:free"),
+    "qwen-coder-free":     ("openrouter", "qwen/qwen2.5-coder-32b-instruct:free"),
+    "qwen-reasoner-free":  ("openrouter", "qwen/qwq-32b:free"),
+    "mistral-7b-free":     ("openrouter", "mistralai/mistral-7b-instruct:free"),
+    "gemma-27b-free":      ("openrouter", "google/gemma-3-27b-it:free"),
+    "gemma-12b-free":      ("openrouter", "google/gemma-3-12b-it:free"),
+    "deepseek-r1-free":    ("openrouter", "deepseek/deepseek-r1:free"),
+    "deepseek-v3-free":    ("openrouter", "deepseek/deepseek-chat-v3-0324:free"),
+    "phi4-free":           ("openrouter", "microsoft/phi-4:free"),
+    "nemotron-free":       ("openrouter", "nvidia/llama-3.1-nemotron-70b-instruct:free"),
+
     # ── Ollama (local) ────────────────────────────────────────────────────────
     "llama3-local":        ("ollama",     "llama3"),
     "codellama-local":     ("ollama",     "codellama"),
     "mistral-local":       ("ollama",     "mistral"),
     "phi3-local":          ("ollama",     "phi3"),
+    "qwen2-local":         ("ollama",     "qwen2"),
+    "deepseek-local":      ("ollama",     "deepseek-r1"),
 }
 
 
@@ -122,15 +143,39 @@ MODEL_PROFILES: dict[str, list[str]] = {
         "mistral-7b",           # Leve, livre
     ],
 
-    # Melhor custo-benefício: gratuitos ou ultra-baratos como prioridade
+    # Melhor custo-benefício: modelos zero-custo via OpenRouter free tier + Ollama + Groq
     "best-free": [
+        "llama3-local",         # Ollama — local, zero custo, zero latência de rede
+        "codellama-local",      # Ollama — local para código
+        "llama-70b-free",       # OpenRouter :free — Llama 3.3 70B grátis
+        "qwen-72b-free",        # OpenRouter :free — Qwen 2.5 72B grátis
+        "deepseek-r1-free",     # OpenRouter :free — DeepSeek R1 raciocínio grátis
+        "deepseek-v3-free",     # OpenRouter :free — DeepSeek V3 grátis
+        "mistral-7b-free",      # OpenRouter :free — Mistral 7B grátis
+        "gemma-27b-free",       # OpenRouter :free — Gemma 3 27B grátis
+        "phi4-free",            # OpenRouter :free — Phi-4 grátis
+        "llama-70b",            # Groq free tier — ultra-rápido
+        "gemma2",               # Groq free tier
+        "llama-8b",             # Groq free tier — mais rápido
+    ],
+
+    # Zero custo absoluto: nunca toca em APIs pagas (idêntico ao best-free sem Groq pago)
+    "free-only": [
+        "llama3-local",         # Ollama — prioridade máxima (local)
+        "mistral-local",        # Ollama — local
+        "qwen2-local",          # Ollama — local
+        "deepseek-local",       # Ollama — local
+        "llama-70b-free",       # OpenRouter :free
+        "qwen-72b-free",        # OpenRouter :free
+        "deepseek-r1-free",     # OpenRouter :free
+        "deepseek-v3-free",     # OpenRouter :free
+        "qwen-coder-free",      # OpenRouter :free — código
+        "mistral-7b-free",      # OpenRouter :free
+        "gemma-27b-free",       # OpenRouter :free
+        "phi4-free",            # OpenRouter :free
+        "nemotron-free",        # OpenRouter :free — NVIDIA
         "llama-70b",            # Groq free tier
-        "gemini-flash-2.5",     # Google free tier (1M ctx)
-        "qwen-72b",             # OpenRouter free tier
-        "deepseek-chat",        # ~$0.14/1M tokens
-        "mistral-7b",           # OpenRouter free
-        "gemma2",               # Groq free
-        "llama3-local",         # Ollama — completamente grátis
+        "gemma2",               # Groq free tier
     ],
 
     # Melhor para RAG: contexto longo, sumarização, recuperação semântica
@@ -158,22 +203,28 @@ MODEL_PROFILES: dict[str, list[str]] = {
         "codellama-local",      # Ollama — especializado em código
         "mistral-local",        # Ollama — mistral 7B
         "phi3-local",           # Ollama — Microsoft phi3
+        "qwen2-local",          # Ollama — Qwen 2
+        "deepseek-local",       # Ollama — DeepSeek R1 local
         "llama-70b",            # Groq — melhor externo como fallback
         "deepseek-chat",        # DeepSeek — fallback externo
     ],
 
     # Auto: deixa o SynAI decidir, tenta tudo do mais capaz ao mais leve
+    # Prioriza OpenRouter como hub central antes de APIs premium
     "auto": [
-        "deepseek-chat",
-        "qwen-72b",
-        "claude-sonnet",
-        "gpt-4o",
-        "gemini-flash-2.5",
-        "llama-70b",
-        "deepseek-coder",
-        "mistral-7b",
-        "gemma2",
-        "llama3-local",
+        "llama3-local",         # Local — zero custo, zero latência
+        "llama-70b-free",       # OpenRouter :free — começa grátis
+        "qwen-72b-free",        # OpenRouter :free
+        "deepseek-r1-free",     # OpenRouter :free — raciocínio
+        "llama-70b",            # Groq — rápido e free tier
+        "deepseek-chat",        # DeepSeek — excelente custo
+        "qwen-72b",             # OpenRouter — pago mas barato
+        "gemini-flash-2.5",     # Google — rápido
+        "claude-sonnet",        # Anthropic — premium
+        "gpt-4o",               # OpenAI — premium
+        "deepseek-coder",       # DeepSeek — código
+        "mistral-7b",           # OpenRouter — leve
+        "gemma2",               # Groq — fallback
     ],
 }
 

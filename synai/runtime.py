@@ -5,22 +5,14 @@ import json
 from dotenv import load_dotenv
 from .interfaces import LLMProvider
 from .profiles import is_profile, resolve_model, get_profile_models, MODEL_PROFILES
+from .router import RouterEngine, ZERO_COST_POLICIES, FREE_BLOCKED_PROVIDERS
 
 load_dotenv()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CADEIA DE FALLBACK — ordem de tentativa quando um provider falha ou não tem key
-# ─────────────────────────────────────────────────────────────────────────────
-FALLBACK_CHAIN: List[str] = [
-    "anthropic",    # Claude — premium, melhor raciocínio geral
-    "openai",       # GPT-4o — robusto, amplamente testado
-    "grok",         # xAI Grok — boa alternativa ao GPT
-    "deepseek",     # DeepSeek V3/R1 — custo-benefício extraordinário
-    "openrouter",   # Gateway Qwen/Mistral/Llama — acesso ao ecossistema global
-    "google",       # Gemini Flash — contexto longo, bom para RAG
-    "groq",         # Llama via Groq — ultra-rápido, free tier generoso
-    "ollama",       # Local soberano — fallback absoluto sem dependência de rede
-]
+# FALLBACK_CHAIN legado mantido para compatibilidade retroativa.
+# Internamente o SynRuntime usa RouterEngine.get_chain(policy) agora.
+# Equivale à política "balanced" (OpenRouter como hub central).
+FALLBACK_CHAIN: List[str] = RouterEngine.get_chain("balanced")
 
 
 def _infer_provider(model: str) -> Optional[str]:
@@ -51,8 +43,9 @@ class SynRuntime:
     a execução de workflows DSL e o dispatcher de ferramentas.
     """
 
-    def __init__(self, real: bool = False):
+    def __init__(self, real: bool = False, policy: str = "balanced"):
         self.real = real
+        self.policy = RouterEngine.validate_policy(policy) or "balanced"
         self.adapters = {
             'LLM': self._llm_adapter,
             'TOOL': self._tool_adapter,
@@ -62,14 +55,18 @@ class SynRuntime:
         self.default_provider: Optional[str] = None
         self.event_listeners: List[Callable[[str, Dict[str, Any]], None]] = []
 
+        print(f"[SynAI] Politica de roteamento: '{self.policy}' - {RouterEngine.describe_policy(self.policy)}")
+
         if real:
             # Auto-registra todos os 8 drivers padrão do SynAI v1.6
             from synai.providers import (
                 DeepSeekDriver, OpenRouterDriver, GroqDriver, OllamaDriver,
                 GrokDriver, GoogleDriver, OpenAIDriver, AnthropicDriver
             )
+            # Ativar prefer_free no OpenRouter quando a política for zero-cost
+            prefer_free = self.policy in ZERO_COST_POLICIES
             self.register_llm_provider("deepseek", DeepSeekDriver())
-            self.register_llm_provider("openrouter", OpenRouterDriver())
+            self.register_llm_provider("openrouter", OpenRouterDriver(prefer_free=prefer_free))
             self.register_llm_provider("groq", GroqDriver())
             self.register_llm_provider("ollama", OllamaDriver())
             self.register_llm_provider("grok", GrokDriver())
@@ -88,6 +85,65 @@ class SynRuntime:
                 listener(event_name, payload)
             except Exception as e:
                 print(f"[SynAI][Telemetry] Erro ao disparar evento '{event_name}': {e}")
+
+    def set_policy(self, policy: str) -> bool:
+        """
+        Altera a política de roteamento em tempo de execução.
+
+        Args:
+            policy: Nome da nova política ("free", "balanced", "premium", etc.)
+
+        Returns:
+            True se a política foi aceita, False se inválida.
+        """
+        validated = RouterEngine.validate_policy(policy)
+        if not validated:
+            print(f"[SynAI] Politica '{policy}' invalida. Mantendo '{self.policy}'.")
+            return False
+        self.policy = validated
+        print(f"[SynAI] Politica alterada para '{self.policy}' - {RouterEngine.describe_policy(self.policy)}")
+        # Atualizar prefer_free no driver OpenRouter se registrado
+        or_driver = self.llm_providers.get("openrouter")
+        if or_driver and hasattr(or_driver, 'prefer_free'):
+            or_driver.prefer_free = self.policy in ZERO_COST_POLICIES
+        return True
+
+    def _is_allowed_by_policy(self, provider: str) -> bool:
+        """Verifica se o provider é permitido pela política ativa."""
+        return RouterEngine.is_provider_allowed(provider, self.policy)
+
+    def _build_candidate_chain(
+        self,
+        preferred_provider: Optional[str] = None,
+        inferred: Optional[str] = None,
+    ) -> List[str]:
+        """
+        Monta a lista final de providers candidatos para uma chamada.
+
+        Ordem:
+            1. Provider explícito (respeitado mesmo sendo premium, exceto em zero-cost)
+            2. Provider inferido pelo modelo
+            3. Provider padrão
+            4. Cadeia completa da política ativa
+
+        Em políticas zero-cost (free/cheapest/local), providers pagos são
+        removidos da lista mesmo se especificados explicitamente.
+        """
+        seen: set = set()
+        candidates: List[str] = []
+
+        def _add(alias: Optional[str]):
+            if alias and alias not in seen and self._is_allowed_by_policy(alias):
+                seen.add(alias)
+                candidates.append(alias)
+
+        _add(preferred_provider)
+        _add(inferred)
+        _add(self.default_provider)
+        for p in RouterEngine.get_chain(self.policy):
+            _add(p)
+
+        return candidates
 
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -307,7 +363,7 @@ class SynRuntime:
             "prompt": prompt[:150] + "..." if len(prompt) > 150 else prompt
         })
 
-        # Resolver nome amigável do registry para real slug
+        # Resolver nome amigavel do registry para real slug
         registry_entry = resolve_model(model)
         if registry_entry:
             inferred, real_model = registry_entry
@@ -315,20 +371,29 @@ class SynRuntime:
             inferred = _infer_provider(model)
             real_model = model
 
-        # Montar lista de candidatos sem duplicatas, respeitando prioridade
-        seen: set = set()
-        candidates: List[str] = []
+        # ── Option B: policy FREE sempre prevalece ──────────────────────────
+        # Se o provider nativo do modelo e bloqueado pela policy, substitui
+        # o slug pelo melhor modelo gratuito equivalente.
+        if inferred and not self._is_allowed_by_policy(inferred):
+            if self.policy in {"local", "sovereign"}:
+                # Local: usa Ollama com llama3 como fallback soberano
+                real_model = "llama3"
+                inferred = "ollama"
+                print(f"   [POLICY:{self.policy}] '{model}' bloqueado. Usando 'llama3' (ollama).")
+            else:
+                # Free/cheapest: substitui pelo melhor modelo OpenRouter :free
+                real_model = RouterEngine.get_free_model("geral")
+                inferred = "openrouter"
+                print(f"   [POLICY:{self.policy}] '{model}' bloqueado. Usando '{real_model}' (openrouter:free).")
+            self._dispatch_event("routing_policy_override", {
+                "original_model": model,
+                "policy": self.policy,
+                "substituted_model": real_model,
+                "substituted_provider": inferred,
+            })
 
-        def _add(alias: Optional[str]):
-            if alias and alias not in seen:
-                seen.add(alias)
-                candidates.append(alias)
-
-        _add(preferred_provider)
-        _add(inferred)
-        _add(self.default_provider)
-        for p in FALLBACK_CHAIN:
-            _add(p)
+        # Montar lista de candidatos via RouterEngine (respeita a policy ativa)
+        candidates = self._build_candidate_chain(preferred_provider, inferred)
 
         for alias in candidates:
             driver = self.llm_providers.get(alias)
@@ -391,21 +456,21 @@ class SynRuntime:
             4. Tenta gerar; em falha, avança para o próximo
         """
         model_list = get_profile_models(profile)
-        print(f"[SynAI][PROFILE] '{profile}' -> {len(model_list)} modelos candidatos")
+        print(f"[SynAI][PROFILE] '{profile}' -> {len(model_list)} modelos candidatos (policy='{self.policy}')")
 
         self._dispatch_event("routing_start", {
             "model": profile,
             "type": "profile",
+            "policy": self.policy,
             "prompt": prompt[:150] + "..." if len(prompt) > 150 else prompt
         })
 
         for friendly_name in model_list:
-            # Resolver: nome amigável ou slug direto
+            # Resolver: nome amigavel ou slug direto
             registry_entry = resolve_model(friendly_name)
             if registry_entry:
                 provider_alias, api_slug = registry_entry
             else:
-                # Slug direto (ex: "gpt-4o" passado sem entry no registry)
                 api_slug = friendly_name
                 provider_alias = _infer_provider(friendly_name)
 
@@ -417,6 +482,17 @@ class SynRuntime:
                     "reason": "No provider inferred"
                 })
                 print(f"   [PROFILE] '{friendly_name}' sem provider inferido — pulando.")
+                continue
+
+            # ── Option B: policy FREE sempre prevalece ──────────────────────
+            if not self._is_allowed_by_policy(provider_alias):
+                self._dispatch_event("routing_skip", {
+                    "model": profile,
+                    "friendly_name": friendly_name,
+                    "provider": provider_alias,
+                    "reason": f"Blocked by policy '{self.policy}'"
+                })
+                print(f"   [PROFILE][POLICY:{self.policy}] '{friendly_name}' ({provider_alias}) bloqueado — pulando.")
                 continue
 
             driver = self.llm_providers.get(provider_alias)
