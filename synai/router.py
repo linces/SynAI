@@ -37,28 +37,29 @@ from typing import List, Optional
 # Sufixo :free = sem custo, rate-limitado mas funcional.
 # ─────────────────────────────────────────────────────────────────────────────
 OPENROUTER_FREE_MODELS: List[str] = [
-    "meta-llama/llama-3.3-70b-instruct:free",     # Llama 3.3 70B — excelente geral
-    "meta-llama/llama-3.1-8b-instruct:free",      # Llama 3.1 8B — rápido
-    "qwen/qwen2.5-72b-instruct:free",             # Qwen 2.5 72B — forte
-    "qwen/qwen2.5-coder-32b-instruct:free",       # Qwen Coder 32B — código
-    "qwen/qwq-32b:free",                          # QwQ — raciocínio
-    "mistralai/mistral-7b-instruct:free",         # Mistral 7B — leve e rápido
-    "google/gemma-3-27b-it:free",                 # Gemma 3 27B — Google open
-    "google/gemma-3-12b-it:free",                 # Gemma 3 12B — compacto
-    "deepseek/deepseek-r1:free",                  # DeepSeek R1 — raciocínio
-    "deepseek/deepseek-chat-v3-0324:free",        # DeepSeek V3 — geral
-    "microsoft/phi-4:free",                       # Phi-4 — eficiente
-    "nvidia/llama-3.1-nemotron-70b-instruct:free",# Nemotron 70B — NVIDIA
-    "nousresearch/deephermes-3-llama-3-8b:free",  # DeepHermes 3 — instrução
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "meta-llama/llama-3.2-3b-instruct:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "qwen/qwen3-coder:free",
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "nousresearch/hermes-3-llama-3.1-405b:free",
+    "openai/gpt-oss-120b:free",
+    "openai/gpt-oss-20b:free",
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+    "cohere/north-mini-code:free",
+    "liquid/lfm-2.5-1.2b-thinking:free",
+    "liquid/lfm-2.5-1.2b-instruct:free",
+    "openrouter/free",
 ]
 
 # Melhor modelo free por categoria
 OPENROUTER_FREE_BEST: dict = {
     "geral":      "meta-llama/llama-3.3-70b-instruct:free",
-    "code":       "qwen/qwen2.5-coder-32b-instruct:free",
-    "reasoning":  "deepseek/deepseek-r1:free",
-    "fast":       "mistralai/mistral-7b-instruct:free",
-    "balanced":   "qwen/qwen2.5-72b-instruct:free",
+    "code":       "qwen/qwen3-coder:free",
+    "reasoning":  "openrouter/free",
+    "fast":       "meta-llama/llama-3.2-3b-instruct:free",
+    "balanced":   "google/gemma-4-31b-it:free",
 }
 
 

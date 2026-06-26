@@ -34,27 +34,28 @@ class OpenRouterDriver:
     # Catálogo de modelos gratuitos do OpenRouter (:free = sem custo)
     FREE_MODELS: list = [
         "meta-llama/llama-3.3-70b-instruct:free",
-        "meta-llama/llama-3.1-8b-instruct:free",
-        "qwen/qwen2.5-72b-instruct:free",
-        "qwen/qwen2.5-coder-32b-instruct:free",
-        "qwen/qwq-32b:free",
-        "mistralai/mistral-7b-instruct:free",
-        "google/gemma-3-27b-it:free",
-        "google/gemma-3-12b-it:free",
-        "deepseek/deepseek-r1:free",
-        "deepseek/deepseek-chat-v3-0324:free",
-        "microsoft/phi-4:free",
-        "nvidia/llama-3.1-nemotron-70b-instruct:free",
-        "nousresearch/deephermes-3-llama-3-8b:free",
+        "meta-llama/llama-3.2-3b-instruct:free",
+        "qwen/qwen3-next-80b-a3b-instruct:free",
+        "qwen/qwen3-coder:free",
+        "google/gemma-4-31b-it:free",
+        "google/gemma-4-26b-a4b-it:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+        "openai/gpt-oss-120b:free",
+        "openai/gpt-oss-20b:free",
+        "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+        "cohere/north-mini-code:free",
+        "liquid/lfm-2.5-1.2b-thinking:free",
+        "liquid/lfm-2.5-1.2b-instruct:free",
+        "openrouter/free",
     ]
 
     # Melhor modelo free por categoria
     FREE_BEST: dict = {
         "geral":     "meta-llama/llama-3.3-70b-instruct:free",
-        "code":      "qwen/qwen2.5-coder-32b-instruct:free",
-        "reasoning": "deepseek/deepseek-r1:free",
-        "fast":      "mistralai/mistral-7b-instruct:free",
-        "balanced":  "qwen/qwen2.5-72b-instruct:free",
+        "code":      "qwen/qwen3-coder:free",
+        "reasoning": "openrouter/free",
+        "fast":      "meta-llama/llama-3.2-3b-instruct:free",
+        "balanced":  "google/gemma-4-31b-it:free",
     }
 
     def __init__(
@@ -110,7 +111,14 @@ class OpenRouterDriver:
                 headers=self._headers(),
                 json=payload,
             )
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                try:
+                    error_data = resp.json()
+                    error_msg = error_data.get("error", {}).get("message", resp.text)
+                except Exception:
+                    error_msg = resp.text
+                raise RuntimeError(f"OpenRouter HTTP {resp.status_code}: {error_msg}")
+            
             data = resp.json()
 
             # Tratar erros retornados no corpo (OpenRouter usa HTTP 200 com erro no JSON)

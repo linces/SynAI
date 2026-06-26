@@ -82,17 +82,17 @@ MODEL_REGISTRY: dict[str, Tuple[str, str]] = {
 
     # ── OpenRouter: Free Tier (:free = sem custo, rate-limitado) ───────────────
     "llama-70b-free":      ("openrouter", "meta-llama/llama-3.3-70b-instruct:free"),
-    "llama-8b-free":       ("openrouter", "meta-llama/llama-3.1-8b-instruct:free"),
-    "qwen-72b-free":       ("openrouter", "qwen/qwen2.5-72b-instruct:free"),
-    "qwen-coder-free":     ("openrouter", "qwen/qwen2.5-coder-32b-instruct:free"),
-    "qwen-reasoner-free":  ("openrouter", "qwen/qwq-32b:free"),
-    "mistral-7b-free":     ("openrouter", "mistralai/mistral-7b-instruct:free"),
-    "gemma-27b-free":      ("openrouter", "google/gemma-3-27b-it:free"),
-    "gemma-12b-free":      ("openrouter", "google/gemma-3-12b-it:free"),
-    "deepseek-r1-free":    ("openrouter", "deepseek/deepseek-r1:free"),
-    "deepseek-v3-free":    ("openrouter", "deepseek/deepseek-chat-v3-0324:free"),
-    "phi4-free":           ("openrouter", "microsoft/phi-4:free"),
-    "nemotron-free":       ("openrouter", "nvidia/llama-3.1-nemotron-70b-instruct:free"),
+    "llama-8b-free":       ("openrouter", "meta-llama/llama-3.2-3b-instruct:free"),
+    "qwen-72b-free":       ("openrouter", "qwen/qwen3-next-80b-a3b-instruct:free"),
+    "qwen-coder-free":     ("openrouter", "qwen/qwen3-coder:free"),
+    "qwen-reasoner-free":  ("openrouter", "openrouter/free"),
+    "mistral-7b-free":     ("openrouter", "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"),
+    "gemma-27b-free":      ("openrouter", "google/gemma-4-31b-it:free"),
+    "gemma-12b-free":      ("openrouter", "google/gemma-4-26b-a4b-it:free"),
+    "deepseek-r1-free":    ("openrouter", "openrouter/free"),
+    "deepseek-v3-free":    ("openrouter", "openrouter/free"),
+    "phi4-free":           ("openrouter", "openrouter/free"),
+    "nemotron-free":       ("openrouter", "openrouter/free"),
 
     # ── Ollama (local) ────────────────────────────────────────────────────────
     "llama3-local":        ("ollama",     "llama3"),
