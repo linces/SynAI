@@ -41,8 +41,8 @@ MODEL_REGISTRY: dict[str, Tuple[str, str]] = {
     "deepseek-reasoner":   ("deepseek",   "deepseek-reasoner"),   # R1
 
     # ── OpenRouter: Qwen ─────────────────────────────────────────────────────
-    "qwen-72b":            ("openrouter", "qwen/qwen2.5-72b-instruct"),
-    "qwen-coder":          ("openrouter", "qwen/qwen2.5-coder-32b-instruct"),
+    "qwen-72b":            ("openrouter", "qwen/qwen-2.5-72b-instruct"),
+    "qwen-coder":          ("openrouter", "qwen/qwen-2.5-coder-32b-instruct"),
     "qwen-reasoner":       ("openrouter", "qwen/qwq-32b"),         # QwQ
 
     # ── OpenRouter: Mistral ──────────────────────────────────────────────────

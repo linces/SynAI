@@ -47,11 +47,14 @@ class GoogleDriver:
             resp.raise_for_status()
             data = resp.json()
             
-            try:
-                text = data["candidates"][0]["content"]["parts"][0]["text"]
-                return text or ""
-            except (KeyError, IndexError) as e:
-                raise RuntimeError(f"Unexpected response format from Gemini: {data}. Error: {e}")
+            if "candidates" in data and len(data["candidates"]) > 0:
+                content = data["candidates"][0].get("content", {})
+                parts = content.get("parts", [])
+                if len(parts) > 0:
+                    return parts[0].get("text", "")
+                return ""
+            
+            raise RuntimeError(f"Unexpected response format from Gemini: {data}")
 
     async def get_embedding(self, text: str) -> Optional[list[float]]:
         """Gera embeddings usando o modelo de embedding padrão do Google."""

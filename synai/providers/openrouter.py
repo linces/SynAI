@@ -18,13 +18,13 @@ class OpenRouterDriver:
 
     provider_name = "openrouter"
     BASE_URL = "https://openrouter.ai/api/v1"
-    DEFAULT_MODEL = "qwen/qwen2.5-72b-instruct"
+    DEFAULT_MODEL = "qwen/qwen-2.5-72b-instruct"
     DEFAULT_FREE_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 
     # Modelos recomendados (slugs válidos no OpenRouter)
     RECOMMENDED = {
-        "geral":         "qwen/qwen2.5-72b-instruct",
-        "code":          "qwen/qwen2.5-coder-32b-instruct",
+        "geral":         "qwen/qwen-2.5-72b-instruct",
+        "code":          "qwen/qwen-2.5-coder-32b-instruct",
         "code_fast":     "mistralai/codestral-latest",
         "reasoning":     "qwen/qwq-32b",
         "llama_big":     "meta-llama/llama-3.3-70b-instruct",
