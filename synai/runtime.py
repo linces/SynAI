@@ -21,10 +21,11 @@ def _infer_provider(model: str) -> Optional[str]:
     Usado pelo call_model quando 'provider' não está explícito.
     """
     m = model.lower()
+    if "gemini" in m:       return "google"
+    if "/" in m:            return "openrouter"
     if "claude" in m:       return "anthropic"
     if "gpt" in m:          return "openai"
     if "deepseek" in m:     return "deepseek"
-    if "gemini" in m:       return "google"
     if "grok" in m:         return "grok"
     if "qwen" in m:         return "openrouter"
     if "mistral" in m:      return "openrouter"
