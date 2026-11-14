@@ -1,0 +1,17 @@
+# SynAI - IDE Rules & Governance
+
+## 0. Carregamento Obrigatório de Políticas (Pre-requisite)
+*   **Vínculo com Domínio Transversal:** Este projeto é regido ativamente pelos padrões transversais de engenharia da SoftArena.
+*   **Leitura Obrigatória no Início do Turno/Sessão:** Antes de propor qualquer plano, executar comandos ou editar código, você **deve ler e carregar em seu contexto** os seguintes arquivos de políticas mestres no caminho absoluto:
+    1. [blueprint_ai_behavior.md](file:///E:/00Dev/agent%20skills%20e%20mais%20prod/policies/dev/blueprint_ai_behavior.md) — Política de Comportamento de IA e Economia de Tokens.
+    2. [blueprint_security.md](file:///E:/00Dev/agent%20skills%20e%20mais%20prod/policies/dev/blueprint_security.md) — Diretrizes Ativas de Segurança e Compliance.
+    3. [blueprint_code_quality.md](file:///E:/00Dev/agent%20skills%20e%20mais%20prod/policies/dev/blueprint_code_quality.md) — Padrões de Qualidade de Código.
+*   **Aplicação Automática e Silenciosa:** Todas as regras contidas nesses documentos devem ser aplicadas de forma 100% autônoma e silenciosa. O usuário **não deve precisar solicitar ou lembrar** o agente sobre a conformidade com essas políticas.
+*   **Atualização Automática de Documentação e READMEs (MANDATÓRIO & NÃO-PROMPTEADO):** Toda e qualquer implementação, alteração de código, adição ou exclusão de arquivos **deve automaticamente disparar a atualização de todos os arquivos de documentação, guias de progresso, READMEs, arquivos de sprints e índices de domínio afetados**. O agente **nunca deve esperar por um pedido explícito do usuário para atualizar READMEs ou índices**; esta ação é obrigatória e faz parte da conclusão de qualquer tarefa. Sempre inclua/atualize a data, a hora (GMT-3) e incremente a versão (ou histórico de revisões) do documento a cada edição.
+
+---
+
+## 1. Core Philosophies
+*   **Zero Placeholders:** Nunca deixe placeholders visuais ou lógicas inacabadas. Se precisar demonstrar algo visual, gere dados mockados consistentes ou imagens via IA.
+*   **Aesthetics First:** A interface de usuário deve impressionar à primeira vista. Use tons HSL curados, gradientes suaves, micro-animações, fontes modernas e sombras sutis. Use sempre Dark Mode elegante como padrão.
+*   **Idioma Obrigatório:** SEMPRE responda em Português do Brasil (pt-BR). Qualquer explicação, comentário no código, revisão ou documentação deve ser escrita na língua portuguesa nativa do Brasil.
